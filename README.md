@@ -137,7 +137,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - `var` everywhere; LINQ method syntax, not query syntax; iterative over recursive; depend on interfaces, construct concrete types lazily at the edges.
 
 **Dependency injection & testing**
-- No IoC container. Use a `Dep`/`Deps` static inner-class pattern for test seams: static mutable fields swapped in tests, `Reset()` called in teardown; generic classes get a companion `${Foo}Dep` class.
+- No IoC container. Use a `Dep` static inner-class pattern for test seams: static mutable fields swapped in tests, `Reset()` called in teardown; generic classes get a companion `${Foo}Dep` class. The inner class is always named `Dep` (singular) — never `Deps`.
   ```csharp
   // shared by every class's Dep — one real instance each, created once, not per-class
   internal static class RealDep
@@ -919,7 +919,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
 Record of deliberate calls made when guidance conflicted, kept for context rather than as open questions:
 
 1. **C# test framework**: standardized on NUnit + FakeItEasy.
-2. **C# DI-avoidance pattern**: standardized on the `Dep`/`Deps` static inner-class pattern over container-based or ad hoc alternatives.
+2. **C# DI-avoidance pattern**: standardized on the `Dep` static inner-class pattern (always singular, never `Deps`) over container-based or ad hoc alternatives.
 3. **Brace style**: standardized on Allman (opening brace on its own line) over K&R.
 4. **External ID exposure**: standardized on the relaxed rule — high-entropy IDs (UUIDv7) may be exposed raw; only sequential/guessable IDs need slug-encoding.
 5. **Rust error handling**: standardized on `anyhow::Result` + `bail!()`/`.context()` everywhere; the hand-rolled-enum / `Rt<T>` alias style is deprecated and should not be used in new code.
