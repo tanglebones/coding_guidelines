@@ -73,6 +73,32 @@ scripts/update-guidelines.sh -m "tighten the Rust error-handling guidance" --exe
 Without `--execute` it just shows `git status`/`git diff` for what would be
 committed — use that to sanity-check before committing for real.
 
+### Editing directly from within a consumer repo's submodule checkout
+
+`.guidelines/` inside a consumer repo is a real, independent git repo (its
+own `.git` file, remote, and branch) — `scripts/update-guidelines.sh` works
+unmodified from inside it, since `git rev-parse --show-toplevel` correctly
+resolves to the submodule's own root, not the consumer repo's. Run it from
+`<consumer-repo>/.guidelines` exactly as above; it commits and pushes to
+*this* repo's remote, not the consumer repo's.
+
+**One extra step afterward**: the consumer repo still has the *old* commit
+recorded as its submodule pointer, so it now shows `.guidelines` as
+"modified" — a fresh clone of the consumer repo would check out the old
+commit until that's fixed. Commit the bump in the consumer repo too:
+
+```bash
+cd <consumer-repo-root>
+git add .guidelines
+git commit -m "chore: bump coding_guidelines pointer"
+git push
+```
+
+(`scripts/sync-guidelines.sh` is built for the opposite direction — pulling
+something already pushed to origin into a stale local submodule — so it's
+not quite the right tool for this "I just edited in place" case; a plain
+manual commit is simplest here.)
+
 ## Pulling the latest guidelines into a consumer repo
 
 From the consumer repo's root, periodically (or when you know an update
@@ -99,5 +125,6 @@ git rm -f .guidelines
 rm -rf .git/modules/.guidelines
 ```
 
-Then remove the `.editorconfig`/`.gitignore` symlinks (or replace them with
-real files) if `setup-submodule.sh` created them.
+Then remove the `.editorconfig`/`.gitignore` files at the consumer repo's
+root if `setup-submodule.sh` copied them there and nothing else has
+since started relying on them.
