@@ -471,7 +471,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     "insert into widget (widget_id, widget_name) select widget_id, widget_name from _widget_stage \
      on conflict do nothing")?;
   ```
-- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for`).
+- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see §4.2 for how corrections and exclusion constraints work on these).
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
@@ -497,6 +497,86 @@ Treat this section as close to non-negotiable house style — it's the most cons
 - **Use `CREATE INDEX CONCURRENTLY` in Postgres for indexes added via migration against a live/populated table** — a plain `CREATE INDEX` takes an exclusive lock that blocks writes for the duration of the build; `CONCURRENTLY` avoids that at the cost of not running inside the migration's own transaction (handle that explicitly in migration tooling).
 - **Name indexes explicitly and consistently** (e.g. `ix_<table>_<col[_col2...]>`), not left to the database's auto-generated name — makes them greppable and safe to drop/recreate by name in later migrations.
 - **Verify with `EXPLAIN ANALYZE` before assuming an index helped.** Don't add speculative indexes without confirming the planner actually uses them for the query in question — an index that isn't selective enough (e.g. on a low-cardinality boolean) may be ignored by the planner in favor of a sequential scan anyway.
+
+### 4.2 Time-versioned / bitemporal data (`_t_` tables)
+
+Any time you need to answer both **"what did we say the value was, as of time t"** (a transaction-time question — freeze the audit trail and read what was current then) and **"what is the correct value for time t, given everything we know now"** (a valid-time question — the business fact, possibly corrected after the fact), you have two independent time axes and need to model them separately. Collapsing them into one timestamp/flag is how systems end up with silently wrong "as of" reports after the first correction.
+
+- **Valid time** — modeled as a `[lower, upper)` half-open range column (conventionally named `valid_for`) on the `_t_` table itself, protected by a GiST exclusion constraint so the same entity can never have two overlapping valid periods.
+  ```sql
+  create table widget_t_price (
+    widget_t_price_id uuid primary key default (uuidv7()),
+    widget_id uuid not null references widget(widget_id) on delete restrict,
+    price numeric not null check (price >= 0),
+    valid_for daterange not null default '(,)' check (range_well_formed(valid_for)),
+    exclude using gist (widget_id with =, valid_for with &&) -- no two valid periods can overlap
+  );
+  ```
+  `range_well_formed(r)` is a small reusable helper — `(lower(r) is null or lower_inc(r)) and (upper(r) is null or not upper_inc(r))` — enforcing the half-open convention everywhere instead of re-deriving it per table. `daterange` (day granularity) is the default choice even for data that's technically timestamped, since day-level correction/versioning is usually all the business actually needs; reach for `tstzrange` only when sub-day precision is a real requirement, not by default.
+- **Scope the exclusion constraint to match the real cardinality** — a plain `(entity_id, valid_for)` exclusion assumes "one valid row per entity"; a join-style `_t_` table relating two entities needs a 3-column exclusion instead, and which side is "the one that must be exclusive at a time" is a modeling decision worth a one-line comment, since the same shape of table can go either way:
+  ```sql
+  create table household_t_advisor (
+    household_t_advisor_id uuid primary key default (uuidv7()),
+    household_id uuid not null references household(household_id) on delete restrict,
+    advisor_id uuid not null references advisor(advisor_id) on delete restrict,
+    valid_for daterange not null default '(,)' check (range_well_formed(valid_for)),
+    -- the same household/advisor pair can't have two overlapping valid periods
+    exclude using gist (household_id with =, advisor_id with =, valid_for with &&)
+  );
+  ```
+- **The GiST-exclusion technique generalizes to any `anyrange`, not just time** — e.g. a numeric tier band scoped to its owning row:
+  ```sql
+  exclude using gist (fee_schedule_id with =, tier with &&) -- tier is a numrange
+  ```
+- **Don't gate the exclusion constraint with a partial `WHERE`** (e.g. `... WHERE not is_deleted`) to let "inactive" rows overlap — it's tempting for soft-delete-style filtering, but a conditional exclusion constraint is easy to get subtly wrong (a row that changes status silently stops being protected). Keep the invariant unconditional on the table; filter status at the query layer instead.
+- **Corrections are truncate-the-old-row + insert-the-new-row, never an in-place update of the fact, and never a `superseded_by`/`is_current`/soft-delete flag column.** The exclusion constraint is what makes this safe — the split can't accidentally create an overlap.
+  ```sql
+  -- correcting the value effective from _as_of onward:
+  update widget_t_price
+  set valid_for = daterange(lower(valid_for), _as_of)
+  where widget_id = _widget_id and valid_for @> _as_of;
+
+  insert into widget_t_price (widget_id, price, valid_for)
+  values (_widget_id, _new_price, daterange(_as_of, upper(_old_valid_for)));
+  ```
+  Wrap this pattern in a single `..._upsert` function per table rather than leaving callers to do the split by hand — a hand-rolled split racing against the exclusion constraint is a common source of bugs. It's fine for this to occasionally leave a zero-width/empty range behind (e.g. via range subtraction, `valid_for = valid_for - _new_range`) rather than compacting — simplicity and correctness win over storage.
+- **Transaction time is a separate, generic mechanism — not another column on the `_t_` table.** A schema-wide audit trigger writing to one shared history table (storing only the changed-column diff, tagged with the transaction ID, the acting user, and a `clock_timestamp()`) answers "what did the system record and when" for every table uniformly, decoupled from whatever `valid_for` says about the business fact:
+  ```sql
+  create table history (
+    tx bigint not null,                -- pg_current_xact_id()
+    table_name text not null,
+    row_id uuid not null,
+    changed_by text not null,          -- required; raise if the caller hasn't set it
+    recorded_at timestamptz not null default clock_timestamp(),
+    op char(1) not null check (op in ('I','U','D')),
+    diff hstore                        -- pre-image of changed columns only
+  );
+  ```
+- **Not every "current value over time" need is a full range-versioned table** — for pure status/event tracking (no corrections, only forward progress), a simpler accumulating log where "current" = latest row is enough, and is cheaper to reason about:
+  ```sql
+  create table widget_activity_n_status (
+    widget_activity_id uuid not null references widget_activity(widget_activity_id) on delete cascade,
+    widget_activity_status_mnemonic text not null references widget_activity_status,
+    changed_by text not null,
+    recorded_at timestamptz not null default clock_timestamp()
+  );
+  -- current status = the row with max(recorded_at) for this widget_activity_id
+  ```
+- **Query idioms**: "as of a given date" is ordinary SQL against the range column, not a special abstraction — `join widget_t_price using (widget_id) where valid_for @> _as_of`. "Currently in effect, unqualified by a date" is worth a dedicated view when several consumers need it, resolved via the latest `lower(valid_for)` per key:
+  ```sql
+  create view widget_current_price as
+  with head as (
+    select widget_id, max(lower(valid_for)) as as_of from widget_t_price group by widget_id
+  )
+  select p.* from widget_t_price p
+    join head using (widget_id)
+    where p.valid_for @> head.as_of;
+  ```
+  Where a `_t_` table must have **no gaps** across all time for a given key (e.g. "every widget must always have exactly one owning group"), enforce that as an explicit trigger-checked invariant on top of the exclusion constraint — the exclusion constraint alone only prevents overlap, it says nothing about gaps:
+  ```sql
+  -- raises if the ranges for widget_id don't collapse to exactly '(,)'
+  select range_agg(valid_for) = '{(,)}'::datemultirange from widget_t_group where widget_id = _widget_id;
+  ```
 
 ---
 
@@ -600,3 +680,4 @@ Record of deliberate calls made when guidance conflicted, kept for context rathe
 3. **Brace style**: standardized on Allman (opening brace on its own line) over K&R.
 4. **External ID exposure**: standardized on the relaxed rule — high-entropy IDs (UUIDv7) may be exposed raw; only sequential/guessable IDs need slug-encoding.
 5. **Rust error handling**: standardized on `anyhow::Result` + `bail!()`/`.context()` everywhere; the hand-rolled-enum / `Rt<T>` alias style is deprecated and should not be used in new code.
+6. **Bitemporal corrections**: standardized on truncate-old-row + insert-new-row for `_t_` table corrections, over an `is_current`/`superseded_by`/soft-delete-flag alternative — the exclusion constraint makes the split safe, and a flag column would need its own consistency invariant instead of getting one for free from the constraint.
