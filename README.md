@@ -91,7 +91,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
   {
       internal static class Dep
       {
-          public static IFileSystem FileSystem = RealDep.FileSystem;
+          public static IFileSystem FileSystem = FileSystemDep.Real;
       }
 
       public async Task RunAsync(CancellationToken ct = default)
@@ -139,20 +139,25 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 **Dependency injection & testing**
 - No IoC container. Use a `Dep` static inner-class pattern for test seams: static mutable fields swapped in tests, `Reset()` called in teardown; generic classes get a companion `${Foo}Dep` class. The inner class is always named `Dep` (singular) — never `Deps`.
   ```csharp
-  // shared by every class's Dep — one real instance each, created once, not per-class
-  internal static class RealDep
+  // One small wrapper per dependency source/area, not one shared class bundling
+  // everything together — FileSystem and Clock come from unrelated libraries.
+  internal static class FileSystemDep
   {
-      public static readonly IFileSystem FileSystem = new FileSystem(); // System.IO.Abstractions
-      public static readonly IClock Clock = new Clock();
+      public static readonly IFileSystem Real = new FileSystem(); // System.IO.Abstractions
+  }
+
+  internal static class ClockDep
+  {
+      public static readonly IClock Real = new Clock();
   }
 
   public sealed class WidgetSyncRunner
   {
       internal static class Dep
       {
-          public static IFileSystem FileSystem = RealDep.FileSystem;
-          public static IClock Clock = RealDep.Clock;
-          public static void Reset() { FileSystem = RealDep.FileSystem; Clock = RealDep.Clock; }
+          public static IFileSystem FileSystem = FileSystemDep.Real;
+          public static IClock Clock = ClockDep.Real;
+          public static void Reset() { FileSystem = FileSystemDep.Real; Clock = ClockDep.Real; }
       }
   }
 
