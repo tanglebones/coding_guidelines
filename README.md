@@ -562,6 +562,38 @@ Any time you need to answer both **"what did we say the value was, as of time t"
   );
   -- current status = the row with max(recorded_at) for this widget_activity_id
   ```
+- **A container's changing *set* of contents over time** (e.g. "what does this account hold today") is a different shape from a single versioned attribute, and is worth a distinct pattern rather than forcing an `EXCLUDE (container_id, item_id, valid_for)` per item. Model it as a **header `_t_` row per container** (scoped by `(container_id, valid_for)`, exactly like a scalar `_t_` table) holding a **hash of the whole membership set**, plus a satellite child table with the actual members — the child rows carry no `valid_for` of their own; their validity is entirely inherited from the parent header row:
+  ```sql
+  create table container_t_contents (
+    container_t_contents_id uuid primary key default (uuidv7()),
+    container_id uuid not null references container(container_id) on delete restrict,
+    valid_for daterange not null default daterange(current_date, null) check (range_well_formed(valid_for)),
+    contents_hash text not null default '', -- hash of the whole (item_id, quantity) set for this period
+    exclude using gist (container_id with =, valid_for with &&)
+  );
+  create table container_t_contents_n_item (
+    container_t_contents_id uuid not null references container_t_contents(container_t_contents_id) on delete cascade,
+    item_id uuid not null references item(item_id) on delete restrict,
+    quantity numeric not null,
+    unique (container_t_contents_id, item_id)
+  );
+  ```
+  On each new snapshot ("container X currently holds {a, b, c}"), hash the whole incoming set and compare it to what's on file **instead of diffing item by item**:
+  - Hash matches the header row already (or about to) cover that date → nothing changed; just extend that header row's `valid_for` and touch zero child rows. This is what keeps an unchanged set of contents down to one header row (and one set of children) across however many days it stays unchanged, instead of a row per day.
+  - Hash differs → split the header row (or insert the very first one) exactly as in the scalar correction pattern above, then **delete and fully re-insert the entire new set of children** under the (possibly new) header id — even if only one item actually changed.
+  ```sql
+  -- current contents view: same "latest lower(valid_for) per key" idiom as a scalar _t_ table
+  create view container_current_contents as
+  with head as (
+    select container_id, max(lower(valid_for)) as as_of from container_t_contents group by container_id
+  )
+  select c.container_id, e.item_id, e.quantity
+  from container_t_contents c
+    join head using (container_id)
+    join container_t_contents_n_item e using (container_t_contents_id)
+    where c.valid_for @> head.as_of;
+  ```
+  **The tradeoff to be explicit about**: collapsing the whole set to one hash is simple and keeps row-churn proportional to "how often the set actually changes," not "how many items it contains" — but it means a single item's addition/removal rewrites *every* child row for that period, and you lose per-item history (you can't ask "when exactly was item X added" without diffing adjacent header periods yourself). If genuine per-item history is a real requirement, track each `(container, item)` pair as its own scoped `_t_` row instead (`EXCLUDE (container_id, item_id, valid_for)`) — a real complexity/granularity tradeoff, not a default to reach for casually.
 - **Query idioms**: "as of a given date" is ordinary SQL against the range column, not a special abstraction — `join widget_t_price using (widget_id) where valid_for @> _as_of`. "Currently in effect, unqualified by a date" is worth a dedicated view when several consumers need it, resolved via the latest `lower(valid_for)` per key:
   ```sql
   create view widget_current_price as
