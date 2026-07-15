@@ -83,10 +83,17 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - 2-space indent, no tabs; braces always required (no single-line `if` without braces); **Allman style** — opening brace on its own line.
 - One type per file, filename matches the type name; file-scoped namespaces; directories mirror namespaces (no incidental subfolders).
   ```csharp
+  using System.IO.Abstractions; // NuGet: TestableIO.System.IO.Abstractions
+
   namespace Company.Widgets.Lib;
 
   public sealed class WidgetSyncRunner : IWidgetSyncRunner
   {
+      internal static class Dep
+      {
+          public static IFileSystem FileSystem = RealDep.FileSystem;
+      }
+
       public async Task RunAsync(CancellationToken ct = default)
       {
           if (Dep.FileSystem.File.Exists(path))
@@ -132,6 +139,13 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 **Dependency injection & testing**
 - No IoC container. Use a `Dep`/`Deps` static inner-class pattern for test seams: static mutable fields swapped in tests, `Reset()` called in teardown; generic classes get a companion `${Foo}Dep` class.
   ```csharp
+  // shared by every class's Dep — one real instance each, created once, not per-class
+  internal static class RealDep
+  {
+      public static readonly IFileSystem FileSystem = new FileSystem(); // System.IO.Abstractions
+      public static readonly IClock Clock = new Clock();
+  }
+
   public sealed class WidgetSyncRunner
   {
       internal static class Dep
