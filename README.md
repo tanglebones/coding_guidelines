@@ -13,7 +13,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 3. **User instructions win, but still get flagged.** If the user has explicitly asked for something that conflicts with a guideline, follow the user's instruction — but still call out the conflict rather than silently complying, and document it per rule 4.
 4. **Always report and document a deviation, once one happens.** Whether the exception came from the user granting it, from an explicit user instruction, or from your own judgment call in a case too minor to interrupt for:
    - **Tell the user in your response** which guideline was not followed and why.
-   - **Leave a short comment in the code at the point of deviation** explaining *why* the guideline wasn't followed — not what the code does. For example: `// Deviates from CODING.md indexing guidance: no index on this FK — table is <100 rows and never queried by it.`
+   - **Leave a short comment in the code at the point of deviation** explaining *why* the guideline wasn't followed — not what the code does. For example: `// Deviates from indexing guidance: no index on this FK — table is <100 rows and never queried by it.`
 5. **When genuinely unsure whether a guideline applies**, ask rather than assume either way — silence is never treated as permission to skip a guideline.
 
 ---
