@@ -593,7 +593,25 @@ Any time you need to answer both **"what did we say the value was, as of time t"
     join container_t_contents_n_item e using (container_t_contents_id)
     where c.valid_for @> head.as_of;
   ```
-  **The tradeoff to be explicit about**: collapsing the whole set to one hash is simple and keeps row-churn proportional to "how often the set actually changes," not "how many items it contains" — but it means a single item's addition/removal rewrites *every* child row for that period, and you lose per-item history (you can't ask "when exactly was item X added" without diffing adjacent header periods yourself). If genuine per-item history is a real requirement, track each `(container, item)` pair as its own scoped `_t_` row instead (`EXCLUDE (container_id, item_id, valid_for)`) — a real complexity/granularity tradeoff, not a default to reach for casually.
+  **The tradeoff to be explicit about**: collapsing the whole set to one hash is simple and keeps row-churn proportional to "how often the set actually changes," not "how many items it contains" — but it means a single item's addition/removal rewrites *every* child row for that period, and you lose per-item history (you can't ask "when exactly was item X added" without diffing adjacent header periods yourself). If genuine per-item history is a real requirement, track each `(container, item)` pair as its own scoped `_t_` row instead (`EXCLUDE (container_id, item_id, valid_for)`) — see the alternative below.
+- **Alternative: per-item `_t_` rows, reconciled by diffing rather than hashing.** Skip the header/child split entirely and give each `(container, item)` pair its own versioned row, with the item folded directly into the exclusion key:
+  ```sql
+  create table container_t_item (
+    container_t_item_id uuid primary key default (uuidv7()),
+    container_id uuid not null references container(container_id) on delete restrict,
+    item_id uuid not null references item(item_id) on delete restrict,
+    quantity numeric not null,
+    valid_for daterange not null default daterange(current_date, null) check (range_well_formed(valid_for)),
+    exclude using gist (container_id with =, item_id with =, valid_for with &&)
+  );
+  ```
+  On each new snapshot, diff it against the currently-open rows (`upper(valid_for) is null`) for that container instead of hashing the whole set — typically staged via a temp table of the incoming `(item_id, quantity)` pairs, then joined both ways against the open rows:
+  - Present in both, same quantity → **untouched**, no write at all.
+  - Present in both, changed quantity → close the open row (`upper = _date`) and insert a new open row `[_date, null)` with the new quantity.
+  - Present only in the open rows (item dropped) → close the open row, insert nothing.
+  - Present only in the new snapshot (item added) → insert a fresh open row `[_date, null)`.
+
+  **Tradeoff vs. the hash-based pattern above**: write amplification now scales with *how many items actually changed*, not "did the set change at all" — a 50-item container with one quantity tick touches 2 rows instead of a full 50-row delete+reinsert, and per-item history ("when was item X added/dropped/resized") falls out for free. The cost is the reconciliation logic itself: a real set-diff against the currently-open rows rather than one hash comparison, and "what does this container hold as of date d" now scans N per-item rows (`where container_id = _id and valid_for @> _d`) instead of one header row joined to its children — still a single indexed query, just a different shape. Prefer this when per-item history is an actual requirement; prefer the hash-based header pattern when the set only needs to be treated as a unit and reconciliation simplicity matters more.
 - **Query idioms**: "as of a given date" is ordinary SQL against the range column, not a special abstraction — `join widget_t_price using (widget_id) where valid_for @> _as_of`. "Currently in effect, unqualified by a date" is worth a dedicated view when several consumers need it, resolved via the latest `lower(valid_for)` per key:
   ```sql
   create view widget_current_price as
