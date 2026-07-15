@@ -125,6 +125,29 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
       }
   }
   ```
+  **Once .NET 11 ships, prefer the native `union` type over `OneOf`** for this — it needs no library dependency and is consumed with an ordinary `switch`, no `.Match()`/`.Switch()` call needed:
+  ```csharp
+  internal union WidgetDeleteDecision(NeedsDelete, AlreadyGone, SizeMismatch);
+
+  internal static class WidgetDeleteResolver
+  {
+      internal static WidgetDeleteDecision Decide(IFileSystem fileSystem, string path, long expectedSizeBytes)
+      {
+          if (!fileSystem.File.Exists(path)) return new AlreadyGone();
+          return fileSystem.FileInfo.New(path).Length == expectedSizeBytes
+              ? new NeedsDelete(path)
+              : new SizeMismatch(path);
+      }
+  }
+
+  // consuming code:
+  switch (WidgetDeleteResolver.Decide(fileSystem, path, expectedSizeBytes))
+  {
+      case NeedsDelete needsDelete: fileSystem.File.Delete(needsDelete.Path); break;
+      case AlreadyGone: break;
+      case SizeMismatch sizeMismatch: Log(sizeMismatch.Path); break;
+  }
+  ```
 - Avoid "class as data + serialization" — for external/DB-shaped data prefer raw dynamic/JSON objects or query results over rigid POCOs; prefer Newtonsoft.Json over `System.Text.Json` where a choice exists.
 - Never emit explicit `null`s in API responses; model optionality more explicitly.
 - UTC / `DateTimeOffset` / `TimeSpan` everywhere — never naive local `DateTime`.
@@ -929,3 +952,4 @@ Record of deliberate calls made when guidance conflicted, kept for context rathe
 4. **External ID exposure**: standardized on the relaxed rule — high-entropy IDs (UUIDv7) may be exposed raw; only sequential/guessable IDs need slug-encoding.
 5. **Rust error handling**: standardized on `anyhow::Result` + `bail!()`/`.context()` everywhere; the hand-rolled-enum / `Rt<T>` alias style is deprecated and should not be used in new code.
 6. **Bitemporal corrections**: standardized on truncate-old-row + insert-new-row for `_t_` table corrections, over an `is_current`/`superseded_by`/soft-delete-flag alternative — the exclusion constraint makes the split safe, and a flag column would need its own consistency invariant instead of getting one for free from the constraint.
+7. **C# discriminated unions**: `OneOf` is the current default (§2.2), but once .NET 11 ships, prefer the native `union` type instead — no library dependency, and consumed with an ordinary `switch` rather than `.Match()`/`.Switch()`.
