@@ -504,8 +504,24 @@ Treat this section as close to non-negotiable house style — it's the most cons
   widget_id text not null references widget(widget_id) on delete restrict, -- referenced entity, don't cascade
   widget_tag_id text not null references widget(widget_id) on delete cascade -- owned sub-row, cascade
   ```
-- **Bulk insert pattern (Postgres):** avoid row-by-row inserts; for large batches, `COPY FROM STDIN` into a temp staging table (`ON COMMIT DELETE ROWS`), then `INSERT ... SELECT ... ON CONFLICT DO NOTHING`. Each batch-write call should be its own transaction so staging rows can't leak across calls. ~10,000 records/batch is a reasonable target size regardless of backend.
-  An alternative to the staging-table dance: `INSERT ... SELECT FROM unnest($1::type[], $2::type[], ...) ON CONFLICT DO NOTHING`, zipping several arrays into rows in one statement, no staging table needed. **Benchmarked locally on Postgres 18** (5 trials/batch size): `COPY`→staging beat `unnest` built by inlining values as literal SQL text (`array['a','b',...]`, e.g. via a query builder that string-interpolates rather than binds) by ~23-44% at 10k-100k rows — the literal-text version pays real SQL-parser cost for thousands of embedded tokens. But `unnest` fed with genuine **bound** array parameters (`$1::uuid[]`, not inlined text) came out roughly level with `COPY` at 1k-10k rows and ~30% *faster* at 100k, since it skips the staging table's extra write and round trip entirely. The lesson: if you reach for `unnest`, bind the arrays as real parameters — building the query via string-interpolated literal arrays is the slow way to do it, not a property of `unnest` itself. Re-verify against your own driver/workload before trusting these numbers at production scale.
+- **Bulk insert pattern (Postgres): default to `unnest` with bound array parameters.** Avoid row-by-row inserts; transpose the batch into one array per column, bind them as real query parameters (not string-interpolated literal SQL), and zip them back into rows with `unnest` in a single statement — no staging table, one round trip:
+  ```ts
+  const widgetIds: string[] = [];
+  const widgetNames: string[] = [];
+  for (const w of batch) {
+    widgetIds.push(w.id);
+    widgetNames.push(w.name);
+  }
+
+  await client.query(
+    `insert into widget (widget_id, widget_name)
+     select * from unnest($1::uuid[], $2::text[]) as t(widget_id, widget_name)
+     on conflict (widget_id) do nothing`,
+    [widgetIds, widgetNames],
+  );
+  ```
+  **This must be genuinely bound parameters, not literal arrays built by string interpolation** (`array['a','b',...]`) — a query builder or ORM helper that inlines values as SQL text defeats the whole point: Postgres then pays real parser cost lexing thousands of embedded tokens. Benchmarked locally on Postgres 18 (5 trials/batch size): bound-parameter `unnest` was roughly level with the `COPY`-staging pattern below at 1k-10k row batches and ~30% *faster* at 100k, while the literal-SQL-text version of the same query was 23-44% *slower* than `COPY` at 10k-100k rows. ~10,000 records/batch is a reasonable target size regardless of pattern. Re-verify against your own driver/workload before trusting these numbers at production scale.
+  - **Fall back to `COPY FROM STDIN` into a temp staging table** (`ON COMMIT DELETE ROWS`), then `INSERT ... SELECT ... ON CONFLICT DO NOTHING`, when a driver/toolchain doesn't support binding array parameters cleanly, or the data is already arriving as a raw byte/row stream rather than something naturally transposed into column arrays. Each batch-write call should be its own transaction so staging rows can't leak across calls.
   ```rust
   let mut writer = client.copy_in("copy _widget_stage (widget_id, widget_name) from stdin (format text)")?;
   for row in batch { writer.write_all(to_copy_row(row).as_bytes())?; }
