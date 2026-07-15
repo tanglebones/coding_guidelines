@@ -483,6 +483,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
   ```
 - **External ID exposure:** high-entropy IDs (UUIDv7) may be exposed to clients/APIs raw. Only sequential or otherwise-guessable IDs need slug-encoding (`{id}_{id_slug}`) before being exposed externally.
 - **Forward-only migrations, no down-migrations.** Roll back via restoring a prior snapshot or shipping a new roll-forward fix — down-migrations are considered inherently unsafe. Migrations are named with strictly increasing real-UTC timestamps and are never edited once committed. Never use `CREATE TABLE IF NOT EXISTS` in a migration (silently no-ops on existing tables) — use explicit `ALTER TABLE`. To restructure without data loss: create a `_new` table, copy, drop old, rename.
+  **This requires exclusive access to the table for the duration of the copy.** Any row inserted/updated/deleted in the source table after the copy starts isn't in the new table — the copy is a snapshot, not a live view. Either hold a lock that blocks concurrent writers for the whole operation, or take the application/writers offline for the migration; don't run this pattern against a table still receiving live writes and assume it'll catch up.
   ```
   migrations/20250101T000000Z_20250103T120000Z_rename_widget_status.sql
   ```
