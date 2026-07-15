@@ -627,6 +627,55 @@ Any time you need to answer both **"what did we say the value was, as of time t"
   -- raises if the ranges for widget_id don't collapse to exactly '(,)'
   select range_agg(valid_for) = '{(,)}'::datemultirange from widget_t_group where widget_id = _widget_id;
   ```
+- **Forward-cascading recompute for a derived running total** — a different correction shape again, for data like a running balance/cache that's *cumulative* rather than a fact or a set: correcting an early value can't be handled by closing/opening one row, because every later cached value was computed on top of it. Instead: delete every cached row from the earliest affected date forward, then walk forward re-summing deltas from the source ledger onto the last surviving value.
+  ```sql
+  create table account_item_balance_cache (
+    account_id uuid not null references account(account_id) on delete restrict,
+    item_id uuid not null references item(item_id) on delete restrict,
+    as_of_date date not null,
+    balance numeric not null,
+    primary key (account_id, item_id, as_of_date)
+  );
+
+  create function account_item_balance_cache_update(_account_id uuid, _from_date date)
+  returns void language plpgsql as $$
+  declare _r record; _prev numeric;
+  begin
+    delete from account_item_balance_cache
+    where account_id = _account_id and as_of_date >= _from_date;
+
+    for _r in
+      select effective_date, item_id, sum(amount) as delta
+      from ledger_entry
+      where account_id = _account_id and effective_date >= _from_date
+      group by effective_date, item_id
+      order by effective_date, item_id
+    loop
+      select balance into _prev from account_item_balance_cache
+        where account_id = _account_id and item_id = _r.item_id and as_of_date < _r.effective_date
+        order by as_of_date desc limit 1;
+
+      insert into account_item_balance_cache (account_id, item_id, as_of_date, balance)
+      values (_account_id, _r.item_id, _r.effective_date, coalesce(_prev, 0) + _r.delta);
+    end loop;
+  end;
+  $$;
+  ```
+  **This one deliberately isn't trigger-driven.** A single correction is often a batch of several ledger rows touching the same account, and a per-row `AFTER INSERT` trigger can't cheaply batch "recompute once for the whole correction" — it would redo the forward walk once per row instead of once total. Make the contract explicit instead: whatever wrote the correcting ledger rows is responsible for calling `..._update` once, with the lowest `effective_date` it touched, after all of its writes for that account are committed. Document that contract on the table/function, since it's easy for a future caller to assume triggers have it covered.
+- **Frozen "as reported at the time" snapshot** — for anything that gets communicated externally (an invoice, a statement, a regulatory filing), the record must stay fixed once issued even if the bitemporal facts it was computed from are corrected afterward. Don't recompute these live from the `_t_` tables on every read; persist the computed result at computation time, including a copy of any input that could otherwise drift out from under it later:
+  ```sql
+  create table monthly_fee_statement (
+    monthly_fee_statement_id uuid primary key default (uuidv7()),
+    account_id uuid not null references account(account_id) on delete restrict,
+    statement_month date not null,
+    -- captured at issue time, since the account's jurisdiction assignment can change later
+    jurisdiction_mnemonic text not null references jurisdiction,
+    fee_amount numeric not null,
+    created_at timestamptz not null default clock_timestamp(),
+    unique (account_id, statement_month)
+  );
+  ```
+  No `valid_for`, no correction-in-place, and deliberately no versioning machinery at all on this table — that absence *is* the point. If a later correction to the source facts means a past statement was wrong, the fix is a new statement for a later period or an explicit adjustment entry, never a silent rewrite of what was already reported; treat this table as append-only, full stop.
 
 ---
 
