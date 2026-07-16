@@ -1,0 +1,11 @@
+## 0. How the Agent Should Use This Document
+
+**These are defaults, not hard rules.** Follow every guideline below automatically, without being asked, whenever it applies to the task at hand. But use judgment about when a guideline doesn't fit — and when it doesn't, don't silently comply and don't silently ignore it either. Instead:
+
+1. **Follow by default.** Apply the relevant guidelines below to any code you write or modify, without waiting to be told.
+2. **Flag tension before overriding.** If following a guideline would be actively wrong for the task — it conflicts with an explicit user instruction, contradicts an established pattern already used elsewhere in the codebase, doesn't fit the language/framework/tooling actually in play, or the underlying tradeoff clearly doesn't apply here — stop and ask the user for an explicit exception before proceeding. Say which guideline is in tension and why you think an exception is warranted. Don't guess at whether the user would be fine with it; ask.
+3. **User instructions win, but still get flagged.** If the user has explicitly asked for something that conflicts with a guideline, follow the user's instruction — but still call out the conflict rather than silently complying, and document it per rule 4.
+4. **Always report and document a deviation, once one happens.** Whether the exception came from the user granting it, from an explicit user instruction, or from your own judgment call in a case too minor to interrupt for:
+   - **Tell the user in your response** which guideline was not followed and why.
+   - **Leave a short comment in the code at the point of deviation** explaining *why* the guideline wasn't followed — not what the code does. For example: `// Deviates from indexing guidance: no index on this FK — table is <100 rows and never queried by it.`
+5. **When genuinely unsure whether a guideline applies**, ask rather than assume either way — silence is never treated as permission to skip a guideline.

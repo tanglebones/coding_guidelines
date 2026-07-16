@@ -1,0 +1,20 @@
+# slug	file	position	group	deps	description
+_preamble	_preamble.md	front	pre	-	Title + intro paragraph
+core-usage	core-usage.md	front	0	-	§0 How the agent should use this document
+core-principles	core-principles.md	front	1	-	§1 General principles (language-agnostic)
+backend-general	backend-general.md	body	2	-	§2.1 General backend guidelines
+backend-csharp	backend-csharp.md	body	2	-	§2.2 C#/.NET
+backend-rust	backend-rust.md	body	2	-	§2.3 Rust
+backend-node	backend-node.md	body	2	-	§2.4 Node.js / TypeScript backend
+shell	shell.md	body	2	-	§2.5 Bash / Shell
+frontend-general	frontend-general.md	body	3	-	§3.1 General frontend guidelines
+frontend-react	frontend-react.md	body	3	-	§3.2 React / TypeScript
+frontend-angular	frontend-angular.md	body	3	-	§3.3 Angular
+frontend-blazor	frontend-blazor.md	body	3	-	§3.4 Blazor
+database	database.md	body	4	-	§4 Database core + §4.1 Indexing + §4.2 Time-versioned/bitemporal data
+database-sqlite	database-sqlite.md	body	4	database	§4.3 SQLite
+database-duckdb	database-duckdb.md	body	4	database	§4.4 DuckDB
+database-ducklake	database-ducklake.md	body	4	database,database-duckdb	§4.5 DuckLake
+infra	infra.md	body	5	-	§5 Infra / CI / CD
+game-godot	game-godot.md	body	6	-	§6 Game Development (Godot / GDScript)
+ai-assistants	ai-assistants.md	back	7	-	§7 Working with AI Coding Assistants

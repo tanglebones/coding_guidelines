@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Pull the latest coding_guidelines commit into a consumer repo's submodule
-# and commit the pointer bump locally. Dry-run by default — pass --execute
-# to actually update and commit. Never pushes on your behalf.
+# Pull the latest coding_guidelines commit into a consumer repo's submodule,
+# regenerate the combined guidelines file recorded in .guidelines-config (if
+# setup-submodule.sh was used to opt into that), and commit the pointer bump
+# (+ regenerated file) locally. Dry-run by default — pass --execute to
+# actually update and commit. Never pushes on your behalf.
 #
 # Usage (run from inside the consumer repo):
 #   scripts/sync-guidelines.sh [--execute] [--path <submodule-path>]
@@ -60,6 +62,14 @@ echo
 echo "New guideline commits:"
 git -C "$submodule_path" log --oneline "$before_sha..$after_sha"
 
+guidelines_file=""
+guidelines_subjects=""
+if [[ -f .guidelines-config ]]; then
+  guidelines_file="$(grep '^file=' .guidelines-config | cut -d= -f2-)"
+  guidelines_subjects="$(grep '^subjects=' .guidelines-config | cut -d= -f2-)"
+  echo "  $guidelines_file will be regenerated (subjects: $guidelines_subjects)"
+fi
+
 if (( ! execute )); then
   echo
   echo "Dry run only — submodule checkout above was fetched but not committed."
@@ -69,6 +79,15 @@ if (( ! execute )); then
 fi
 
 git add "$submodule_path"
+
+if [[ -n "$guidelines_file" ]]; then
+  "$submodule_path/scripts/build-guidelines.sh" \
+    --subjects "$guidelines_subjects" \
+    --source-dir "$submodule_path/subjects" \
+    --out "$guidelines_file"
+  git add "$guidelines_file"
+fi
+
 git commit -m "chore: sync coding guidelines ${before_sha:0:12}..${after_sha:0:12}"
 
 echo

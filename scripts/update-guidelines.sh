@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Commit and push a guidelines change from within this (coding_guidelines) repo.
-# Dry-run by default — pass --execute to actually commit and push.
+# Regenerate GUIDELINES.md from subjects/*.md, then commit and push a
+# guidelines change from within this (coding_guidelines) repo. Dry-run by
+# default — pass --execute to actually commit and push.
 #
 # Usage:
 #   scripts/update-guidelines.sh -m "commit message" [--execute] [--push=no]
@@ -25,6 +26,10 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+
+if [[ -f scripts/build-guidelines.sh ]]; then
+  scripts/build-guidelines.sh --subjects all --out GUIDELINES.md
+fi
 
 remote_url="$(git remote get-url origin 2>/dev/null || true)"
 if [[ "$remote_url" != *coding_guidelines* ]]; then
