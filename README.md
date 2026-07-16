@@ -49,6 +49,8 @@ Run `scripts/build-guidelines.sh --list` for the same list read live from `subje
 | File | Covers |
 |---|---|
 | [`systems/login.md`](systems/login.md) | Username/password via challenge-response, OAuth2, SAML, and the session issued once any of them succeeds. |
+| [`systems/websocket-api.md`](systems/websocket-api.md) | Building a custom WebSocket-based RPC API: connection lifecycle, message envelope, dispatch, result/error handling, push/subscription, and reconnection resync. |
+| [`systems/session-management.md`](systems/session-management.md) | Managing an authenticated session's full lifecycle — issuance, validation, rotation, revocation — independent of which login method or transport is in play. |
 
 ## Why subject fragments, not Claude Code Skills
 

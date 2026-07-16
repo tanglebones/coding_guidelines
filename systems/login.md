@@ -46,17 +46,4 @@ create table login_challenge (
 
 ## Session issuance (after any of the above succeeds)
 
-Once a user authenticates via any method above, session issuance is a single shared mechanism — verified against a real implementation:
-
-- **The cookie (or bearer token, for non-browser clients) carries only an opaque session-claim ID** — not a JWT, not the framework's default self-contained session cookie. Cookie flags: `HttpOnly`, `Secure`, `SameSite=Lax` (or `Strict` if cross-site navigation into an authenticated view is never needed).
-- **Validity is authoritative in a server-side row, not the cookie's cryptographic validity alone.** A cookie can be well-formed and still represent a revoked/expired session; every request (or, for a long-lived server-push connection, a periodic recheck — e.g. every 30s) validates the claim ID against the DB, not just against the cookie's own signature.
-  ```sql
-  create table session_claim (
-    session_claim_id text primary key default (uuidv7()),
-    account_id text not null references account(account_id) on delete cascade,
-    expires_at timestamptz not null
-  );
-  ```
-- **Rotation with an overlapping grace period, not an atomic swap.** On rotation (e.g. a client-driven refresh call before expiry), demote the *old* claim ID to a short grace TTL (seconds, not minutes) instead of deleting it outright, and issue a new claim ID — this absorbs the race where a concurrent request already in flight still carries the old cookie value.
-- **A background reaper for expired rows** — TTL-based server state needs an explicit process deleting expired claims on a schedule; don't rely on lazy expiry-on-read alone, or the table grows unbounded.
-- **Explicit logout revokes every claim for that account** (not just the current one) when the user's intent is "sign me out everywhere," distinct from a single-session-only revoke.
+Once a user authenticates via any method above, issuing and managing the resulting session is a separate, cross-cutting concern — see `systems/session-management.md` for issuance, validation, rotation, and revocation. That doc applies no matter which login method got the user there, and governs the session for its entire lifetime, not just the moment it's created.
