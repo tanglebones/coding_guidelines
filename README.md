@@ -55,14 +55,7 @@ Run `scripts/build-guidelines.sh --list` for the same list read live from `subje
 | [`systems/session-management.md`](systems/session-management.md) | Managing an authenticated session's full lifecycle — issuance, validation, rotation, revocation — independent of which login method or transport is in play. |
 | [`systems/background-jobs.md`](systems/background-jobs.md) | Background/scheduled job design: convergence toward a computed target state instead of a sequence of instructions, the multiple-partial-writers anti-pattern, and the externality exception (side effects that can't be converged, e.g. sending an email). |
 | [`systems/multi-tenancy.md`](systems/multi-tenancy.md) | Shared-schema tenant isolation: `tenant_id` on every tenant-owned table, users belonging to multiple tenants, per-tenant roles + resource-level ACLs, the "platform"/global-admin pattern, and why filtering-by-convention alone is the biggest real risk. |
-
-## Planned (not yet written)
-
-Identified gaps, tracked here so they aren't lost — not yet drafted:
-
-| Item | Where it'll live | Covers |
-|---|---|---|
-| `systems/file-uploads.md` | new systems doc | Upload validation, presigned URLs, storage lifecycle. |
+| [`systems/file-uploads.md`](systems/file-uploads.md) | Handling user-uploaded files: content validation, direct-to-storage upload via presigned URLs, malware scanning, storage lifecycle/orphan cleanup, and serving uploads back safely. |
 
 ## Why subject fragments, not Claude Code Skills
 
