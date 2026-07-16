@@ -147,9 +147,9 @@ This fetches the submodule's tracked branch (`main`), fast-forwards the
 actually moved — regenerates the combined guidelines file recorded in
 `.guidelines-config` (if `setup-submodule.sh` was used to opt into one) from
 the updated fragments, then commits the pointer bump + regenerated file
-locally. It prints a reminder to push; it never pushes for you. Repos that
-predate `.guidelines-config` (or never opted in) just get the pointer bump,
-unchanged from before.
+locally. It prints a reminder to push; it never pushes for you. If a
+consumer repo has no `.guidelines-config` (it never opted into a generated
+combined file), only the pointer bump is committed — no file regeneration.
 
 ## Removing the submodule (if you ever need to)
 

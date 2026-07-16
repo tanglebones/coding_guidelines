@@ -45,3 +45,11 @@
   A.CallTo(() => fakeClock.UtcNow()).Returns(new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
   ```
 - **Doc comments explain *why*, not *what*** — invariants, non-obvious constraints, workarounds for a specific bug. Skip comments that just restate the code.
+- **Write project docs (`README.md`, architecture notes, ADRs, etc.) for a fresh reader with zero prior context** — someone who wasn't part of whatever discussion, PR review, or chat session led to the change. Never write "as discussed," "per your request," "we decided," "the user asked for," or similar — state the resulting fact, decision, or rationale directly, as if it had always been true. If the *why* behind a decision matters, capture the durable reason (a constraint, a past incident, a tradeoff) rather than who asked for it or where it came from.
+  ```md
+  <!-- Bad: assumes the reader was in the room -->
+  We decided to switch to keyset pagination like you asked.
+
+  <!-- Good: states the fact and its durable rationale -->
+  Pagination uses the keyset pattern — offset pagination degrades badly past large page counts.
+  ```
