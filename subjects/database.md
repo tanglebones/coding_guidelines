@@ -85,7 +85,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
   | `_x_` | Many-to-many crosswalk | `widget_x_tag` |
   | `_t_` | Time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these) | `widget_t_price` |
 
-  **Avoid `_e_` in the common case — it's usually just a harder-to-insert-into version of `ALTER TABLE ... ADD COLUMN`.** Reach for it only when altering the parent table directly isn't viable:
+  **Avoid `_e_` in the common case — a plain `NOT NULL` column added via `ALTER TABLE` requires exactly the same thing at insert time (the value must be supplied on every insert, same as `_e_`), for far less cost: no extra table, no extra join to read it back, no mutual-FK setup.** `_e_` doesn't buy easier inserts; it only buys something when altering the parent table directly isn't viable:
   - the parent table is large/hot enough that the lock `ALTER TABLE` would need is an unacceptable production outage, or
   - `ALTER TABLE` on the parent is itself blocked (e.g. by the FK-driven restrictions documented in the `database-sqlite`/`database-duckdb` subjects).
 
