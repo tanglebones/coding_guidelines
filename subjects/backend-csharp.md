@@ -70,7 +70,7 @@
   }
   ```
 - Avoid "class as data + serialization" — for external/DB-shaped data prefer raw dynamic/JSON objects or query results over rigid POCOs; prefer Newtonsoft.Json over `System.Text.Json` where a choice exists.
-- Never emit explicit `null`s in API responses; model optionality more explicitly.
+- Never emit explicit `null`s in API responses (see `backend-general`'s JSON payload conventions); model optionality more explicitly.
 - UTC / `DateTimeOffset` / `TimeSpan` everywhere — never naive local `DateTime`.
   ```csharp
   public sealed class Clock : IClock

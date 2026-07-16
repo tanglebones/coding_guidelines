@@ -18,6 +18,15 @@
   const result: ApiResult<WidgetType> = await widgetService.find(widgetId);
   ```
   Using `400`/`401`/`403`/`422` to encode validation failures, auth decisions, or domain rejections is a common but incorrect pattern this guidance deliberately rejects — those are business results too, and belong in the payload alongside everything else. Status codes stay legitimately relevant only for things actually happening at the network/transport layer: redirects, content negotiation, rate limiting or circuit-breaking enforced by a gateway/load balancer in front of the app, and genuine upstream transport failures (`502`/`503`/`504`) — none of which is the endpoint's own business logic speaking.
+- **Never emit explicit `null`s in a JSON API response — model optionality more explicitly** (an absent key, a discriminated `{ present: false }`-style shape, or a separate endpoint/field for the optional data). This is a general JSON payload convention, not a C#-specific one — see `backend-csharp` for the language-specific reminder.
+- **Encode any integer that could exceed `2^53 - 1` (JavaScript's safe-integer limit, `Number.MAX_SAFE_INTEGER`) as a JSON string, never a JSON number.** JSON itself has no separate integer type — numbers are parsed as IEEE-754 doubles by JavaScript (and by many other JSON consumers), which can only represent integers exactly up to `2^53 - 1`. Any 64-bit integer, snowflake-style ID, large sequence number, or monetary amount in minor units at scale can silently exceed that and lose precision on the wire with no error raised — the response parses fine, the number is just quietly wrong. `int32`-range values are always safe and don't need this; the risk starts well before a true 64-bit range, so encode as a string whenever a field's range isn't provably bounded well under `2^53`.
+  ```ts
+  type WidgetResponse = {
+    widgetId: string;      // UUIDv7 primary key — already a string, no issue
+    sequenceNumber: string; // a bigint-backed counter — encoded as a string, not a number
+    quantity: number;       // small, provably bounded — a plain number is fine
+  };
+  ```
 
 ### API idempotency & versioning
 
