@@ -22,6 +22,8 @@ create table login_challenge (
 
 **This protocol alone is not a complete login system — the following are required additions, not optional hardening:**
 - **Rate limiting / lockout** on both challenge-init and verify, keyed by account and by source IP/fingerprint independently (an attacker who controls neither still gets throttled). Without this, the challenge-response protocol's resistance to wire-sniffing does nothing to stop brute-force guessing.
+  - **A per-account throttle alone can be weaponized to deny the real owner access** — an attacker who only knows the username, not the password, can deliberately fail logins to keep that account throttled. Past some failure threshold, escalate to a CAPTCHA/proof-of-work challenge rather than a hard block: this makes sustaining the denial cost the attacker continuous effort, instead of a one-time cheap trigger that costs the legitimate owner hours locked out.
+  - **Notify the account owner on repeated failed attempts** (email/SMS, independent of whatever channel is being attacked) so they're aware mid-attack and can act or confirm "that wasn't me."
 - **MFA/2FA** as a second, independent factor (TOTP is the simplest to self-host; avoid SMS-based codes as the sole second factor — they're phishable and SIM-swap-vulnerable).
 - **Audit every attempt** — challenge-init, verify-success, and verify-failure all as distinct, queryable audit events (ties to the general "every mutation of important state should be auditable" backend guidance) — this is what makes the rate-limiting/lockout thresholds and any later incident investigation possible at all.
 
