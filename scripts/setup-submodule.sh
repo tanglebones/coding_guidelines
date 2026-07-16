@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Add coding_guidelines as a submodule of a consumer repo and wire up
-# .editorconfig/.gitignore. Dry-run by default — pass --execute to apply.
+# .editorconfig/.gitignore/rustfmt.toml. Dry-run by default — pass --execute to apply.
 #
 # Usage (run from inside the consumer repo, or pass --target):
 #   scripts/setup-submodule.sh [--execute] [--target <path>] \
@@ -46,8 +46,10 @@ fi
 
 copy_editorconfig=1
 copy_gitignore=1
+copy_rustfmt=1
 [[ -e "$target/.editorconfig" ]] && copy_editorconfig=0
 [[ -e "$target/.gitignore" ]] && copy_gitignore=0
+[[ -e "$target/rustfmt.toml" ]] && copy_rustfmt=0
 
 # Copied, not symlinked: a symlinked .gitignore/.editorconfig pointing through
 # a submodule boundary trips a real git quirk (spurious "too many levels of
@@ -68,6 +70,13 @@ else
   echo "    rules by hand: cat $submodule_path/.gitignore >> .gitignore"
 fi
 
+if (( copy_rustfmt )); then
+  echo "  would copy:      $submodule_path/rustfmt.toml -> rustfmt.toml"
+else
+  echo "  rustfmt.toml already exists — leaving as-is. To fold in the shared"
+  echo "    rules by hand: cat $submodule_path/rustfmt.toml >> rustfmt.toml"
+fi
+
 if (( ! execute )); then
   echo
   echo "Dry run only — re-run with --execute to apply."
@@ -82,10 +91,14 @@ fi
 if (( copy_gitignore )); then
   cp "$target/$submodule_path/.gitignore" "$target/.gitignore"
 fi
+if (( copy_rustfmt )); then
+  cp "$target/$submodule_path/rustfmt.toml" "$target/rustfmt.toml"
+fi
 
 git -C "$target" add .gitmodules "$submodule_path"
 (( copy_editorconfig )) && git -C "$target" add .editorconfig
 (( copy_gitignore )) && git -C "$target" add .gitignore
+(( copy_rustfmt )) && git -C "$target" add rustfmt.toml
 
 git -C "$target" commit -m "Add coding_guidelines as a submodule at $submodule_path"
 
