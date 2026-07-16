@@ -7,6 +7,7 @@ backend-csharp	backend-csharp.md	body	backend	-	C#/.NET
 backend-rust	backend-rust.md	body	backend	-	Rust
 backend-node	backend-node.md	body	backend	-	Node.js / TypeScript backend
 shell	shell.md	body	backend	-	Bash / Shell
+observability	observability.md	body	observability	-	Logging, actor-centric audit/domain events, current-state-vs-transition-log
 frontend-general	frontend-general.md	body	frontend	-	General frontend guidelines
 frontend-react	frontend-react.md	body	frontend	-	React / TypeScript
 frontend-angular	frontend-angular.md	body	frontend	-	Angular

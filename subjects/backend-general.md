@@ -3,7 +3,7 @@
 ### General backend guidelines
 - Layer strictly: handlers/controllers never touch data access directly; a repository/data-access layer sits in between.
 - Return structured, stable error codes/mnemonics from the API boundary; never leak raw exception details or stack traces to clients. Map error codes centrally on the consuming (frontend) side rather than ad hoc per call site.
-- Every mutation of important state should be auditable — either an audit-log table, structured logging, or both — especially for anything with compliance implications.
+- Every mutation of important state should be auditable — either an audit-log table, structured logging, or both — especially for anything with compliance implications. See `observability` for the actor-centric pattern this actually looks like in practice.
 - Prefer reversible actions (deactivate/soft-delete) over hard deletes where the domain allows it.
 - Async all the way — no sync-over-async blocking; wrap unit-of-work/connections in `using`/RAII so they're always released.
 - **Don't default to REST out of habit.** gRPC and a custom WebSocket/RPC transport (a single message-envelope-based channel) are legitimate choices, not exotic fallbacks — pick based on the actual need: simple resource CRUD consumed by a browser fits REST-ish conventions fine; high-throughput bidirectional or streaming workloads are often better served by gRPC or a WebSocket RPC channel instead.

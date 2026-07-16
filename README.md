@@ -29,6 +29,7 @@ Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one 
 | [`backend-rust`](subjects/backend-rust.md) | Rust | |
 | [`backend-node`](subjects/backend-node.md) | Node.js / TypeScript backend | |
 | [`shell`](subjects/shell.md) | Bash / Shell | |
+| [`observability`](subjects/observability.md) | Logging, actor-centric audit/domain events, current-state-vs-transition-log | |
 | [`frontend-general`](subjects/frontend-general.md) | General frontend guidelines | |
 | [`frontend-react`](subjects/frontend-react.md) | React / TypeScript | |
 | [`frontend-angular`](subjects/frontend-angular.md) | Angular | |
@@ -60,7 +61,6 @@ Identified gaps, tracked here so they aren't lost — not yet drafted:
 
 | Item | Where it'll live | Covers |
 |---|---|---|
-| Observability/logging | new subject | Log-level discipline, correlation/trace IDs threaded through a request (ties to the `ctx` pattern in `backend-node`), never logging secrets/PII. |
 | API idempotency & versioning | extends `backend-general` | Idempotency keys for retried mutating requests; a deprecation/versioning policy for endpoints and payload shapes. |
 | Testing strategy | new subject | A unifying philosophy across the per-language testing conventions that already exist (NUnit+FakeItEasy, Vitest, GUT) — test pyramid shape, and whether integration tests should hit a real test database rather than mocking it out, given this repo's no-ORM/real-SQL stance. |
 | `systems/file-uploads.md` | new systems doc | Upload validation, presigned URLs, storage lifecycle. |
