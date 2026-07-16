@@ -1,6 +1,6 @@
-## 3. Frontend
+## Frontend
 
-### 3.1 General frontend guidelines
+### General frontend guidelines
 - Centralize all HTTP/API calls behind one service/module — never hardcode endpoints inline in components.
   ```ts
   export class ApiService {

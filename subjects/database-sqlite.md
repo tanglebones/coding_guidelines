@@ -1,4 +1,4 @@
-### 4.3 SQLite
+### SQLite
 
 SQLite shows up in two distinct roles, and which conventions above apply depends on which one you're in — say which one explicitly rather than leaving it implicit:
 
@@ -28,7 +28,7 @@ SQLite shows up in two distinct roles, and which conventions above apply depends
   ```
 - **No native boolean type** — model as `integer not null default 0` (or `1`), same convention as a Postgres boolean but worth spelling out, since SQLite's dynamic typing/type-affinity won't stop something else from being inserted there. Reach for `STRICT` tables (SQLite ≥ 3.37) on new schemas to get closer to enforced column types instead of relying on affinity alone.
 - **Timestamps as ISO-8601 UTC text**, not a native `timestamptz` (SQLite doesn't have one) — `strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` as the default, which stays lexicographically sortable just like a Postgres `timestamptz` column would.
-- **No `EXCLUDE`/GiST** — the bitemporal non-overlap invariants from §4.2 aren't expressible as a table constraint here. Enforce them with a `BEFORE INSERT`/`BEFORE UPDATE` trigger that raises if an overlapping range already exists:
+- **No `EXCLUDE`/GiST** — the bitemporal non-overlap invariants from the `database` subject aren't expressible as a table constraint here. Enforce them with a `BEFORE INSERT`/`BEFORE UPDATE` trigger that raises if an overlapping range already exists:
   ```sql
   create trigger widget_t_price_no_overlap
   before insert on widget_t_price
@@ -50,7 +50,7 @@ SQLite shows up in two distinct roles, and which conventions above apply depends
     insert into search (entity_type, entity_id, display_text) values ('widget', new.widget_id, new.widget_name);
   end;
   ```
-- **Audit trail**: no generic hstore-diff history table like the Postgres pattern in §4.2 (SQLite has no `hstore`) — the natural analog is a dedicated `_audit` table per source table with its own `AFTER INSERT/UPDATE/DELETE` trigger, denormalizing whatever display fields are useful onto the audit row so a later read doesn't depend on a join against data that may no longer exist:
+- **Audit trail**: no generic hstore-diff history table like the Postgres pattern in the `database` subject (SQLite has no `hstore`) — the natural analog is a dedicated `_audit` table per source table with its own `AFTER INSERT/UPDATE/DELETE` trigger, denormalizing whatever display fields are useful onto the audit row so a later read doesn't depend on a join against data that may no longer exist:
   ```sql
   create trigger if not exists widget_update_audit after update on widget
   when old.widget_name <> new.widget_name

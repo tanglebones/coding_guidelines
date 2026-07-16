@@ -17,10 +17,10 @@ Four scripts under `scripts/` cover the whole lifecycle:
 | `scripts/sync-guidelines.sh` | a **consumer** repo, periodically | Pull the latest guidelines commit into the submodule, bump the pointer, and regenerate the consumer's combined file to match. |
 
 All four are **dry-run by default** — they print the plan and make no
-changes until you pass `--execute` (matching the dry-run convention in
-`GUIDELINES.md` §1). None of them push a consumer repo's `main` on your
-behalf; `sync-guidelines.sh` only commits the submodule-pointer bump locally
-and reminds you to review + push.
+changes until you pass `--execute` (matching the dry-run convention
+documented under `core-principles`). None of them push a consumer repo's
+`main` on your behalf; `sync-guidelines.sh` only commits the
+submodule-pointer bump locally and reminds you to review + push.
 
 ## Choosing subjects
 
@@ -37,7 +37,7 @@ scripts/setup-submodule.sh --execute --subjects backend-rust,database,infra
 `--subjects all` (the default) includes everything. `scripts/build-guidelines.sh
 --list` prints all available slugs. Selecting a subject with dependencies
 (e.g. `database-sqlite` depends on `database`) automatically pulls those in
-too — the `§0`/`§1`/`§7` process guidance is always included regardless of
+too — the `core-usage`/`core-principles`/`ai-assistants` process guidance is always included regardless of
 selection, since it applies no matter the stack.
 
 ## One-time setup in a consumer repo

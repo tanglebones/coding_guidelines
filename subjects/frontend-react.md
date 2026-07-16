@@ -1,4 +1,4 @@
-### 3.2 React / TypeScript
+### React / TypeScript
 
 - Functional components + hooks only; no class components.
 - Prefer `type` over `interface`; avoid `class`, prefer closures/functions.

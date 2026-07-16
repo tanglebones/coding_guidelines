@@ -1,4 +1,4 @@
-## 1. General Principles (language-agnostic)
+## General Principles (language-agnostic)
 
 - **Match existing style first.** Investigate the surrounding code/conventions before changing anything; keep diffs minimal and focused on the task at hand.
 - **No dead weight.** Remove dead code, unused variables, write-only variables, leftover debug output, and stale TODOs as you touch a file.

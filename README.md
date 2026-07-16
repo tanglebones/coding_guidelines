@@ -20,7 +20,7 @@ This file is a hand-maintained overview and index. The actual guideline content 
 
 ## Subject index
 
-Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one of these). `§0`/`§1`/`§7` — the process guidance on how to use this document, language-agnostic principles, and AI-assistant handling — are always included regardless of selection, since they apply no matter the stack.
+Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one of these). `core-usage`/`core-principles`/`ai-assistants` — the process guidance on how to use this document, language-agnostic principles, and AI-assistant handling — are always included regardless of selection, since they apply no matter the stack.
 
 | Slug | Covers | Depends on |
 |---|---|---|
@@ -46,7 +46,7 @@ Run `scripts/build-guidelines.sh --list` for the same list read live from `subje
 
 This could instead be packaged as a set of Claude Code Skills (one per language/area, or one per project type) rather than plain files. The seam looks similar — both let a consumer pick only the subjects relevant to their stack — but the loading model is different in a way that matters here:
 
-- **Skills load conditionally**, matched by description at the moment a task seems to need them. A guideline that's supposed to be followed automatically, without being asked (see `§0` — "Follow every guideline below automatically, without being asked, whenever it applies") depends on actually being in context every session, not on the assistant correctly noticing and invoking the right skill. Miss the match once and that guidance silently never applies — there's no signal that anything was skipped.
+- **Skills load conditionally**, matched by description at the moment a task seems to need them. A guideline that's supposed to be followed automatically, without being asked (see `core-usage` — "Follow every guideline below automatically, without being asked, whenever it applies") depends on actually being in context every session, not on the assistant correctly noticing and invoking the right skill. Miss the match once and that guidance silently never applies — there's no signal that anything was skipped.
 - **Subject fragments are static and chosen once**, at `setup-submodule.sh` time, based on what the repo *is* (its stack), not what a given task looks like turn-to-turn. That's a much more stable signal than per-task skill matching, and the combined output is still loaded in full every session like a normal `CLAUDE.md` import — as reliable as loading everything, just scoped to less content.
 - Plain markdown files also work with any agent that reads a pointed-at file, not just Claude Code's skill mechanism specifically — consistent with this repo's goal of being consumable by "Claude Code (and any other coding agent)."
 

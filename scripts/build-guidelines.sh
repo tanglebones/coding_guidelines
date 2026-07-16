@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assemble one or more subject fragments from subjects/manifest.tsv into a
-# single combined guidelines doc. `front`/`back` rows (the §0/§1/§7 process
+# single combined guidelines doc. `front`/`back` rows (the core-usage/core-principles/ai-assistants process
 # guidance) are always included; only `body` rows are selectable. Selecting a
 # body subject also pulls in its `deps` (e.g. database-sqlite pulls in
 # database) — final order always follows the manifest's canonical row order,

@@ -1,4 +1,4 @@
-### 4.5 DuckLake — time travel for lakehouse tables
+### DuckLake — time travel for lakehouse tables
 
 **Not used in any project here yet** — this subsection is written from DuckLake's documented design, not from repo evidence like the rest of this file. Treat the syntax as directional, verify it against DuckLake's current docs before relying on it, and replace this with real conventions once a project actually adopts it.
 
@@ -25,7 +25,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
   select * from ducklake_snapshots('lake'); -- list snapshot ids/timestamps
   ```
   This reconstructs both **rows and schema** as of that snapshot — schema evolution is versioned in the catalog too, not just data.
-- **This is transaction-time versioning at the whole-table/catalog level, essentially for free** — the exact concern the generic `history` audit table in §4.2 solves by hand, one Postgres table at a time. If a table's storage layer is DuckLake, an explicit history table for "what did this look like as of transaction time T" may be redundant with what the engine already gives you — don't build both without a reason to.
+- **This is transaction-time versioning at the whole-table/catalog level, essentially for free** — the exact concern the generic `history` audit table in the `database` subject solves by hand, one Postgres table at a time. If a table's storage layer is DuckLake, an explicit history table for "what did this look like as of transaction time T" may be redundant with what the engine already gives you — don't build both without a reason to.
 - **Retention is not automatic — say so explicitly.** Every snapshot keeps its Parquet files reachable, so storage grows without bound unless old snapshots are deliberately expired and their now-unreferenced files compacted/cleaned up on a schedule:
   ```sql
   call ducklake_expire_snapshots('lake', older_than => now() - interval '30 days');
@@ -33,4 +33,4 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
   call ducklake_merge_adjacent_files('lake'); -- compact small files after heavy incremental writes
   ```
   Treat the retention window as a deliberate policy decision (how far back must "as of" queries reach), the same way any other retention/cleanup tool in this document is dry-run-by-default and explicit about what it's discarding.
-- **The catalog database is now durability-critical infrastructure**, not an incidental detail — picking Postgres vs. SQLite vs. DuckDB itself as the catalog backend should follow the same ephemeral-vs-durable reasoning as §4.3/§4.4: a rebuildable/dev catalog can be disposable, but a production catalog is the one thing that can't be silently lost without losing the ability to reconstruct or time-travel the lake at all.
+- **The catalog database is now durability-critical infrastructure**, not an incidental detail — picking Postgres vs. SQLite vs. DuckDB itself as the catalog backend should follow the same ephemeral-vs-durable reasoning as `database-sqlite`/`database-duckdb`: a rebuildable/dev catalog can be disposable, but a production catalog is the one thing that can't be silently lost without losing the ability to reconstruct or time-travel the lake at all.

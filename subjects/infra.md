@@ -1,4 +1,4 @@
-## 5. Infra / CI / CD
+## Infra / CI / CD
 
 - TLS terminates at the gateway/load balancer, never on application VMs directly; certs should be Key-Vault-referenced (or equivalent) with auto-renewal — never a manually-uploaded static cert.
 - Immutable, per-build (per-commit) parallel deploys with an explicit, separate promotion/cutover step — never deploy-and-cutover atomically. Prune old deploys with a dry-run-by-default cleanup tool.

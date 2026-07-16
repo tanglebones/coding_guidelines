@@ -1,4 +1,4 @@
-## 6. Game Development (Godot / GDScript)
+## Game Development (Godot / GDScript)
 
 - One class per file, filename matches the class; `class_name` + `extends` on the first two lines; typed variables and constants throughout.
   ```gdscript

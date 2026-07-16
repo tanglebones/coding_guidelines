@@ -1,4 +1,4 @@
-## 0. How the Agent Should Use This Document
+## How the Agent Should Use This Document
 
 **These are defaults, not hard rules.** Follow every guideline below automatically, without being asked, whenever it applies to the task at hand. But use judgment about when a guideline doesn't fit — and when it doesn't, don't silently comply and don't silently ignore it either. Instead:
 

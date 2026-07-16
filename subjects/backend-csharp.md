@@ -1,4 +1,4 @@
-### 2.2 C#/.NET
+### C#/.NET
 
 **Formatting & structure**
 - 2-space indent, no tabs; braces always required (no single-line `if` without braces); **Allman style** — opening brace on its own line.

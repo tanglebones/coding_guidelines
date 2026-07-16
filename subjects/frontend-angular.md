@@ -1,4 +1,4 @@
-### 3.3 Angular
+### Angular
 
 - Feature-module folder convention: `.module.ts` + `-routing.module.ts` + component + `.spec.ts` per feature.
 - Centralize all HTTP in an injectable `ApiService` returning `Observable<T>`; put cross-cutting concerns (auth headers, error toasts) in interceptors, not per-call code.

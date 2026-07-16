@@ -1,4 +1,4 @@
-## 7. Working with AI Coding Assistants
+## Working with AI Coding Assistants
 
 - Review AI-generated code carefully, especially data structures and constraints — don't trust it silently, particularly around anything touching persisted data.
 - Be explicit about unstated requirements (e.g. data-preservation rules) — the assistant won't infer them.

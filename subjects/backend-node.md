@@ -1,4 +1,4 @@
-### 2.4 Node.js / TypeScript backend
+### Node.js / TypeScript backend
 
 - Layer "core" libraries by execution environment: environment-agnostic code first, dropping to a Node-only or browser-only layer only when the API genuinely needs it. It's fine for a Node-specific layer to duplicate an environment-agnostic function with a better platform-specific implementation.
   ```

@@ -1,9 +1,9 @@
-## 4. Database
+## Database
 
 Treat this section as close to non-negotiable house style — it's the most consistent set of conventions across engines and stacks.
 
-- **No ORMs.** Write SQL tailored to the specific database engine in use, behind a hand-written code-side abstraction (the repository/data-access layer from §2.1) around storage/query concerns — not an ORM's generic query builder or entity-mapping layer. An ORM's abstraction goes the wrong direction for a persisted store: application code has exactly one current view of the schema, while the data itself is read and written by many versions of the code over its lifetime (old rows written by last year's code, new columns not yet backfilled, migrations in flight). An ORM that maps the schema to *today's* code model (the "code-first" style, generating/migrating the schema from entity classes, is the worst offender here) bakes in the assumption that there's one authoritative shape, and it also makes real query-pattern analysis (what's actually hitting the DB, which indexes matter, `EXPLAIN`-driven tuning) much harder, since the SQL is generated rather than written and reviewed.
-  Don't stop at just dropping the ORM and keeping a Dapper-style row-to-class mapper, either — that's still the "class as data shape" problem in miniature, just with hand-written SQL in front of it. Read query results defensively into flexible containers (a dictionary/map, a dynamic/JSON-shaped object) rather than mapping rows onto a rigid class, mirroring the "class as data + serialization" guidance in §2.2: a fixed class shape makes the same one-current-view-vs-many-code-versions mistake at the row level that an ORM makes at the schema level.
+- **No ORMs.** Write SQL tailored to the specific database engine in use, behind a hand-written code-side abstraction (the repository/data-access layer from `backend-general`) around storage/query concerns — not an ORM's generic query builder or entity-mapping layer. An ORM's abstraction goes the wrong direction for a persisted store: application code has exactly one current view of the schema, while the data itself is read and written by many versions of the code over its lifetime (old rows written by last year's code, new columns not yet backfilled, migrations in flight). An ORM that maps the schema to *today's* code model (the "code-first" style, generating/migrating the schema from entity classes, is the worst offender here) bakes in the assumption that there's one authoritative shape, and it also makes real query-pattern analysis (what's actually hitting the DB, which indexes matter, `EXPLAIN`-driven tuning) much harder, since the SQL is generated rather than written and reviewed.
+  Don't stop at just dropping the ORM and keeping a Dapper-style row-to-class mapper, either — that's still the "class as data shape" problem in miniature, just with hand-written SQL in front of it. Read query results defensively into flexible containers (a dictionary/map, a dynamic/JSON-shaped object) rather than mapping rows onto a rigid class, mirroring the "class as data + serialization" guidance in `backend-csharp`: a fixed class shape makes the same one-current-view-vs-many-code-versions mistake at the row level that an ORM makes at the schema level.
 - **Never use a bare `id`/`name`/`type`/`status`/`value` column.** Prefix every column with its table/domain name (e.g. `order_id`, `order_status`), so a `SELECT *` or a `JOIN ... USING (col)` is always unambiguous and safe.
 - **Singular table names.**
 - **`NOT NULL` by default** on every column; nullable is the exception and needs a documented reason. Model true optionality via a separate sub-table (an "extension" table joined 1:1), not a nullable column.
@@ -75,7 +75,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     "insert into widget (widget_id, widget_name) select widget_id, widget_name from _widget_stage \
      on conflict do nothing")?;
   ```
-- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see §4.2 for how corrections and exclusion constraints work on these).
+- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these).
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
@@ -84,7 +84,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     join widget_status using (widget_status_mnemonic);
   ```
 
-### 4.1 Indexing
+### Indexing
 
 - **Every foreign key gets an index.** Postgres does not create one automatically for FK columns (only for the referenced primary key) — an un-indexed FK causes slow joins and full-table locks on the parent row during `ON DELETE`/`ON UPDATE` cascade checks.
 - **Every column used in a `WHERE`, `JOIN ... USING/ON`, or `ORDER BY` on a non-trivial table should have a deliberate indexing decision** — not necessarily its own single-column index, but a conscious choice (composite index, covered by an existing index's leading columns, or explicitly "not indexed, table is small/rarely queried").
@@ -102,7 +102,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
 - **Name indexes explicitly and consistently** (e.g. `ix_<table>_<col[_col2...]>`), not left to the database's auto-generated name — makes them greppable and safe to drop/recreate by name in later migrations.
 - **Verify with `EXPLAIN ANALYZE` before assuming an index helped.** Don't add speculative indexes without confirming the planner actually uses them for the query in question — an index that isn't selective enough (e.g. on a low-cardinality boolean) may be ignored by the planner in favor of a sequential scan anyway.
 
-### 4.2 Time-versioned / bitemporal data (`_t_` tables)
+### Time-versioned / bitemporal data (`_t_` tables)
 
 Any time you need to answer both **"what did we say the value was, as of time t"** (a transaction-time question — freeze the audit trail and read what was current then) and **"what is the correct value for time t, given everything we know now"** (a valid-time question — the business fact, possibly corrected after the fact), you have two independent time axes and need to model them separately. Collapsing them into one timestamp/flag is how systems end up with silently wrong "as of" reports after the first correction.
 

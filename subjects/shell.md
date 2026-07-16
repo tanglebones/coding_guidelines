@@ -1,4 +1,4 @@
-### 2.5 Bash / Shell
+### Bash / Shell
 
 - Always `set -euo pipefail`.
 - Set `MSYS2_ARG_CONV_EXCL="*"` for any script that must also run correctly under Windows/msys2 (msys2 otherwise mangles arguments containing colons, e.g. `C:\path` or Docker image refs).

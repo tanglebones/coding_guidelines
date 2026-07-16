@@ -1,4 +1,4 @@
-### 2.3 Rust
+### Rust
 
 - Prefer many small, single-purpose crates over one monolith; put shared logic in a thin library crate at the bottom of the dependency graph.
   ```

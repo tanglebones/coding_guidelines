@@ -4,7 +4,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 
 ---
 
-## 0. How the Agent Should Use This Document
+## How the Agent Should Use This Document
 
 **These are defaults, not hard rules.** Follow every guideline below automatically, without being asked, whenever it applies to the task at hand. But use judgment about when a guideline doesn't fit — and when it doesn't, don't silently comply and don't silently ignore it either. Instead:
 
@@ -18,7 +18,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 
 ---
 
-## 1. General Principles (language-agnostic)
+## General Principles (language-agnostic)
 
 - **Match existing style first.** Investigate the surrounding code/conventions before changing anything; keep diffs minimal and focused on the task at hand.
 - **No dead weight.** Remove dead code, unused variables, write-only variables, leftover debug output, and stale TODOs as you touch a file.
@@ -76,16 +76,16 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 
 ---
 
-## 2. Backend
+## Backend
 
-### 2.1 General backend guidelines
+### General backend guidelines
 - Layer strictly: handlers/controllers never touch data access directly; a repository/data-access layer sits in between.
 - Return structured, stable error codes/mnemonics from the API boundary; never leak raw exception details or stack traces to clients. Map error codes centrally on the consuming (frontend) side rather than ad hoc per call site.
 - Every mutation of important state should be auditable — either an audit-log table, structured logging, or both — especially for anything with compliance implications.
 - Prefer reversible actions (deactivate/soft-delete) over hard deletes where the domain allows it.
 - Async all the way — no sync-over-async blocking; wrap unit-of-work/connections in `using`/RAII so they're always released.
 
-### 2.2 C#/.NET
+### C#/.NET
 
 **Formatting & structure**
 - 2-space indent, no tabs; braces always required (no single-line `if` without braces); **Allman style** — opening brace on its own line.
@@ -221,7 +221,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - `Try/Catch` that re-throws as `new Exception(ex.Message)`, losing the original stack trace — use `throw;` instead.
 - Returning raw exception objects to API clients (e.g. `BadRequestObjectResult(ex)`) — map to a stable, safe error code/message instead.
 
-### 2.3 Rust
+### Rust
 
 - Prefer many small, single-purpose crates over one monolith; put shared logic in a thin library crate at the bottom of the dependency graph.
   ```
@@ -283,7 +283,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
   fn round_trips_through_postgres() { ... }
   ```
 
-### 2.4 Node.js / TypeScript backend
+### Node.js / TypeScript backend
 
 - Layer "core" libraries by execution environment: environment-agnostic code first, dropping to a Node-only or browser-only layer only when the API genuinely needs it. It's fine for a Node-specific layer to duplicate an environment-agnostic function with a better platform-specific implementation.
   ```
@@ -325,7 +325,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - Extract generic utilities into small scoped internal packages rather than duplicating inline helpers across services.
 - Status/health convention: `/status` (grep-able structured log) plus `/healthz` for liveness.
 
-### 2.5 Bash / Shell
+### Bash / Shell
 
 - Always `set -euo pipefail`.
 - Set `MSYS2_ARG_CONV_EXCL="*"` for any script that must also run correctly under Windows/msys2 (msys2 otherwise mangles arguments containing colons, e.g. `C:\path` or Docker image refs).
@@ -343,9 +343,9 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 
 ---
 
-## 3. Frontend
+## Frontend
 
-### 3.1 General frontend guidelines
+### General frontend guidelines
 - Centralize all HTTP/API calls behind one service/module — never hardcode endpoints inline in components.
   ```ts
   export class ApiService {
@@ -385,7 +385,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - Environment config is swapped/token-replaced at build or deploy time — never hand-edit a generated environment file.
 - Zero-warning lint gate in CI (`--max-warnings=0` style) where a lint step exists.
 
-### 3.2 React / TypeScript
+### React / TypeScript
 
 - Functional components + hooks only; no class components.
 - Prefer `type` over `interface`; avoid `class`, prefer closures/functions.
@@ -417,7 +417,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - Vite + Vitest (+ Testing Library where present) is a solid modern toolchain default; wire up client-side error monitoring.
 - Keep layout sub-panels always visible but disabled rather than conditionally unmounting them.
 
-### 3.3 Angular
+### Angular
 
 - Feature-module folder convention: `.module.ts` + `-routing.module.ts` + component + `.spec.ts` per feature.
 - Centralize all HTTP in an injectable `ApiService` returning `Observable<T>`; put cross-cutting concerns (auth headers, error toasts) in interceptors, not per-call code.
@@ -445,7 +445,7 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 - Minimum "should create" (`TestBed` + `HttpClientTestingModule`) smoke test per component is an accepted floor even without deeper coverage.
 - `npm audit` must pass for new dependencies; track any necessary exceptions in an explicit allowlist file rather than silently ignoring.
 
-### 3.4 Blazor
+### Blazor
 
 - Render mode is opt-in per component (e.g. `@rendermode InteractiveServer`), not set globally.
   ```razor
@@ -464,12 +464,12 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
 
 ---
 
-## 4. Database
+## Database
 
 Treat this section as close to non-negotiable house style — it's the most consistent set of conventions across engines and stacks.
 
-- **No ORMs.** Write SQL tailored to the specific database engine in use, behind a hand-written code-side abstraction (the repository/data-access layer from §2.1) around storage/query concerns — not an ORM's generic query builder or entity-mapping layer. An ORM's abstraction goes the wrong direction for a persisted store: application code has exactly one current view of the schema, while the data itself is read and written by many versions of the code over its lifetime (old rows written by last year's code, new columns not yet backfilled, migrations in flight). An ORM that maps the schema to *today's* code model (the "code-first" style, generating/migrating the schema from entity classes, is the worst offender here) bakes in the assumption that there's one authoritative shape, and it also makes real query-pattern analysis (what's actually hitting the DB, which indexes matter, `EXPLAIN`-driven tuning) much harder, since the SQL is generated rather than written and reviewed.
-  Don't stop at just dropping the ORM and keeping a Dapper-style row-to-class mapper, either — that's still the "class as data shape" problem in miniature, just with hand-written SQL in front of it. Read query results defensively into flexible containers (a dictionary/map, a dynamic/JSON-shaped object) rather than mapping rows onto a rigid class, mirroring the "class as data + serialization" guidance in §2.2: a fixed class shape makes the same one-current-view-vs-many-code-versions mistake at the row level that an ORM makes at the schema level.
+- **No ORMs.** Write SQL tailored to the specific database engine in use, behind a hand-written code-side abstraction (the repository/data-access layer from `backend-general`) around storage/query concerns — not an ORM's generic query builder or entity-mapping layer. An ORM's abstraction goes the wrong direction for a persisted store: application code has exactly one current view of the schema, while the data itself is read and written by many versions of the code over its lifetime (old rows written by last year's code, new columns not yet backfilled, migrations in flight). An ORM that maps the schema to *today's* code model (the "code-first" style, generating/migrating the schema from entity classes, is the worst offender here) bakes in the assumption that there's one authoritative shape, and it also makes real query-pattern analysis (what's actually hitting the DB, which indexes matter, `EXPLAIN`-driven tuning) much harder, since the SQL is generated rather than written and reviewed.
+  Don't stop at just dropping the ORM and keeping a Dapper-style row-to-class mapper, either — that's still the "class as data shape" problem in miniature, just with hand-written SQL in front of it. Read query results defensively into flexible containers (a dictionary/map, a dynamic/JSON-shaped object) rather than mapping rows onto a rigid class, mirroring the "class as data + serialization" guidance in `backend-csharp`: a fixed class shape makes the same one-current-view-vs-many-code-versions mistake at the row level that an ORM makes at the schema level.
 - **Never use a bare `id`/`name`/`type`/`status`/`value` column.** Prefix every column with its table/domain name (e.g. `order_id`, `order_status`), so a `SELECT *` or a `JOIN ... USING (col)` is always unambiguous and safe.
 - **Singular table names.**
 - **`NOT NULL` by default** on every column; nullable is the exception and needs a documented reason. Model true optionality via a separate sub-table (an "extension" table joined 1:1), not a nullable column.
@@ -541,7 +541,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     "insert into widget (widget_id, widget_name) select widget_id, widget_name from _widget_stage \
      on conflict do nothing")?;
   ```
-- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see §4.2 for how corrections and exclusion constraints work on these).
+- **Relation-table naming infixes** (worth adopting where a team needs this level of precision): `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these).
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
@@ -550,7 +550,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     join widget_status using (widget_status_mnemonic);
   ```
 
-### 4.1 Indexing
+### Indexing
 
 - **Every foreign key gets an index.** Postgres does not create one automatically for FK columns (only for the referenced primary key) — an un-indexed FK causes slow joins and full-table locks on the parent row during `ON DELETE`/`ON UPDATE` cascade checks.
 - **Every column used in a `WHERE`, `JOIN ... USING/ON`, or `ORDER BY` on a non-trivial table should have a deliberate indexing decision** — not necessarily its own single-column index, but a conscious choice (composite index, covered by an existing index's leading columns, or explicitly "not indexed, table is small/rarely queried").
@@ -568,7 +568,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
 - **Name indexes explicitly and consistently** (e.g. `ix_<table>_<col[_col2...]>`), not left to the database's auto-generated name — makes them greppable and safe to drop/recreate by name in later migrations.
 - **Verify with `EXPLAIN ANALYZE` before assuming an index helped.** Don't add speculative indexes without confirming the planner actually uses them for the query in question — an index that isn't selective enough (e.g. on a low-cardinality boolean) may be ignored by the planner in favor of a sequential scan anyway.
 
-### 4.2 Time-versioned / bitemporal data (`_t_` tables)
+### Time-versioned / bitemporal data (`_t_` tables)
 
 Any time you need to answer both **"what did we say the value was, as of time t"** (a transaction-time question — freeze the audit trail and read what was current then) and **"what is the correct value for time t, given everything we know now"** (a valid-time question — the business fact, possibly corrected after the fact), you have two independent time axes and need to model them separately. Collapsing them into one timestamp/flag is how systems end up with silently wrong "as of" reports after the first correction.
 
@@ -747,7 +747,7 @@ Any time you need to answer both **"what did we say the value was, as of time t"
   ```
   No `valid_for`, no correction-in-place, and deliberately no versioning machinery at all on this table — that absence *is* the point. If a later correction to the source facts means a past statement was wrong, the fix is a new statement for a later period or an explicit adjustment entry, never a silent rewrite of what was already reported; treat this table as append-only, full stop.
 
-### 4.3 SQLite
+### SQLite
 
 SQLite shows up in two distinct roles, and which conventions above apply depends on which one you're in — say which one explicitly rather than leaving it implicit:
 
@@ -777,7 +777,7 @@ SQLite shows up in two distinct roles, and which conventions above apply depends
   ```
 - **No native boolean type** — model as `integer not null default 0` (or `1`), same convention as a Postgres boolean but worth spelling out, since SQLite's dynamic typing/type-affinity won't stop something else from being inserted there. Reach for `STRICT` tables (SQLite ≥ 3.37) on new schemas to get closer to enforced column types instead of relying on affinity alone.
 - **Timestamps as ISO-8601 UTC text**, not a native `timestamptz` (SQLite doesn't have one) — `strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` as the default, which stays lexicographically sortable just like a Postgres `timestamptz` column would.
-- **No `EXCLUDE`/GiST** — the bitemporal non-overlap invariants from §4.2 aren't expressible as a table constraint here. Enforce them with a `BEFORE INSERT`/`BEFORE UPDATE` trigger that raises if an overlapping range already exists:
+- **No `EXCLUDE`/GiST** — the bitemporal non-overlap invariants from the `database` subject aren't expressible as a table constraint here. Enforce them with a `BEFORE INSERT`/`BEFORE UPDATE` trigger that raises if an overlapping range already exists:
   ```sql
   create trigger widget_t_price_no_overlap
   before insert on widget_t_price
@@ -799,7 +799,7 @@ SQLite shows up in two distinct roles, and which conventions above apply depends
     insert into search (entity_type, entity_id, display_text) values ('widget', new.widget_id, new.widget_name);
   end;
   ```
-- **Audit trail**: no generic hstore-diff history table like the Postgres pattern in §4.2 (SQLite has no `hstore`) — the natural analog is a dedicated `_audit` table per source table with its own `AFTER INSERT/UPDATE/DELETE` trigger, denormalizing whatever display fields are useful onto the audit row so a later read doesn't depend on a join against data that may no longer exist:
+- **Audit trail**: no generic hstore-diff history table like the Postgres pattern in the `database` subject (SQLite has no `hstore`) — the natural analog is a dedicated `_audit` table per source table with its own `AFTER INSERT/UPDATE/DELETE` trigger, denormalizing whatever display fields are useful onto the audit row so a later read doesn't depend on a join against data that may no longer exist:
   ```sql
   create trigger if not exists widget_update_audit after update on widget
   when old.widget_name <> new.widget_name
@@ -813,7 +813,7 @@ SQLite shows up in two distinct roles, and which conventions above apply depends
 - **`OFFSET` pagination is more tolerable here** than the blanket "no `OFFSET` pagination" rule earlier in this section — SQLite is typically backing a small, locally-bounded table (a local log, a per-user cache), not an internet-scale one, so the usual "gets slower as the offset grows" concern rarely bites in practice. Still prefer keyset pagination once a table's row count isn't known to stay small.
 - **Pick `:memory:` vs. a file path deliberately, and say which**: `:memory:` for anything that's purely derived and safe to lose (rebuilt from an external source at process start); a file under a well-known app-data directory for anything that must survive a restart.
 
-### 4.4 DuckDB
+### DuckDB
 
 DuckDB is an embedded **columnar/OLAP** engine, not a row-store like SQLite — reach for it over SQLite when the workload is bulk/analytical loading and querying rather than many small transactional writes. It's reasonable to implement the same storage interface against both (e.g. behind one shared `Sink`/repository trait) and benchmark a batch-size sweep across them rather than guess which fits a given ingest workload better.
 
@@ -835,14 +835,14 @@ DuckDB is an embedded **columnar/OLAP** engine, not a row-store like SQLite — 
   ```
   **Transaction note**: only the final `INSERT ... SELECT ... ON CONFLICT` participates in the surrounding `begin`/`commit`/`rollback` — the Appender's writes to the staging table happen outside it. A crash mid-batch leaves the outer transaction uncommitted (so the permanent table stays clean) and the staging table empty on the next connection (temp tables are session-scoped), so dedup on restart/reprocess still holds — but don't assume `rollback` undoes anything the Appender already wrote; that's exactly why staging is cleared unconditionally at the start of every batch rather than trusted to already be empty.
 - **Autocommit by default, same as SQLite** — wrap a multi-statement batch in an explicit `begin`/`commit`/`rollback` rather than relying on each statement being its own transaction.
-- **Durability is managed internally** — no WAL-mode/`synchronous` pragma tuning to do here, unlike SQLite (§4.3). DuckDB's concurrency model targets single-writer analytical workloads, not the many-small-concurrent-writers case SQLite's WAL tuning addresses.
+- **Durability is managed internally** — no WAL-mode/`synchronous` pragma tuning to do here, unlike SQLite (see `database-sqlite`). DuckDB's concurrency model targets single-writer analytical workloads, not the many-small-concurrent-writers case SQLite's WAL tuning addresses.
 - **Dedup via a plain `unique` constraint + `on conflict do nothing`** — DuckDB supports standard `UNIQUE`/`PRIMARY KEY`/`ON CONFLICT` SQL, so most relational conventions from earlier in this section carry over directly; the Appender bypass above is the one real exception, not the rule.
-- **Schema bootstrap** follows the same ephemeral-vs-durable split as §4.3: `CREATE TABLE IF NOT EXISTS` run idempotently is fine for a rebuildable analytical store; a DuckDB file used as an actual system of record should get the same forward-only, explicitly-timestamped migrations as any other durable database.
+- **Schema bootstrap** follows the same ephemeral-vs-durable split as `database-sqlite`: `CREATE TABLE IF NOT EXISTS` run idempotently is fine for a rebuildable analytical store; a DuckDB file used as an actual system of record should get the same forward-only, explicitly-timestamped migrations as any other durable database.
 - **Foreign keys restrict `ALTER TABLE` far more broadly than in SQLite/Postgres, and asymmetrically by direction** (verified against DuckDB 1.3.1, no pragma to opt out): `ADD COLUMN` is always fine on either side. On the table that *has* the FK, `RENAME COLUMN`/`DROP COLUMN` work on any column except the FK column itself, which is always blocked. On the table an FK *points at*, `RENAME COLUMN`/`DROP COLUMN` are blocked **for every column, including ones with nothing to do with the FK** — the whole table is locked for those operations as long as any other table anywhere in the database has an FK referencing it. There's no pragma to relax this the way SQLite's `foreign_keys = OFF` does — the "create a `_new` table, copy, drop, rename" restructure pattern (or dropping and recreating the referencing FK constraint around the change) is the way through it, not a fallback.
 - **Native typed columns are richer than SQLite's** — a real `uuid` column type, plus `bigint`/`blob`/`uinteger`/etc. — but there's still no built-in `uuidv7()` generator, so IDs are still supplied by application code, not a column default (doubly true given the Appender point above).
 - **Worth knowing even before you need it**: `read_parquet()`/`read_csv()`/`read_json()` let DuckDB query files directly as tables with no import step at all — reach for that ad hoc, before writing an ingestion pipeline, when the source data already exists as files and the need is analytical/exploratory rather than a durable store.
 
-### 4.5 DuckLake — time travel for lakehouse tables
+### DuckLake — time travel for lakehouse tables
 
 **Not used in any project here yet** — this subsection is written from DuckLake's documented design, not from repo evidence like the rest of this file. Treat the syntax as directional, verify it against DuckLake's current docs before relying on it, and replace this with real conventions once a project actually adopts it.
 
@@ -869,7 +869,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
   select * from ducklake_snapshots('lake'); -- list snapshot ids/timestamps
   ```
   This reconstructs both **rows and schema** as of that snapshot — schema evolution is versioned in the catalog too, not just data.
-- **This is transaction-time versioning at the whole-table/catalog level, essentially for free** — the exact concern the generic `history` audit table in §4.2 solves by hand, one Postgres table at a time. If a table's storage layer is DuckLake, an explicit history table for "what did this look like as of transaction time T" may be redundant with what the engine already gives you — don't build both without a reason to.
+- **This is transaction-time versioning at the whole-table/catalog level, essentially for free** — the exact concern the generic `history` audit table in the `database` subject solves by hand, one Postgres table at a time. If a table's storage layer is DuckLake, an explicit history table for "what did this look like as of transaction time T" may be redundant with what the engine already gives you — don't build both without a reason to.
 - **Retention is not automatic — say so explicitly.** Every snapshot keeps its Parquet files reachable, so storage grows without bound unless old snapshots are deliberately expired and their now-unreferenced files compacted/cleaned up on a schedule:
   ```sql
   call ducklake_expire_snapshots('lake', older_than => now() - interval '30 days');
@@ -877,11 +877,11 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
   call ducklake_merge_adjacent_files('lake'); -- compact small files after heavy incremental writes
   ```
   Treat the retention window as a deliberate policy decision (how far back must "as of" queries reach), the same way any other retention/cleanup tool in this document is dry-run-by-default and explicit about what it's discarding.
-- **The catalog database is now durability-critical infrastructure**, not an incidental detail — picking Postgres vs. SQLite vs. DuckDB itself as the catalog backend should follow the same ephemeral-vs-durable reasoning as §4.3/§4.4: a rebuildable/dev catalog can be disposable, but a production catalog is the one thing that can't be silently lost without losing the ability to reconstruct or time-travel the lake at all.
+- **The catalog database is now durability-critical infrastructure**, not an incidental detail — picking Postgres vs. SQLite vs. DuckDB itself as the catalog backend should follow the same ephemeral-vs-durable reasoning as `database-sqlite`/`database-duckdb`: a rebuildable/dev catalog can be disposable, but a production catalog is the one thing that can't be silently lost without losing the ability to reconstruct or time-travel the lake at all.
 
 ---
 
-## 5. Infra / CI / CD
+## Infra / CI / CD
 
 - TLS terminates at the gateway/load balancer, never on application VMs directly; certs should be Key-Vault-referenced (or equivalent) with auto-renewal — never a manually-uploaded static cert.
 - Immutable, per-build (per-commit) parallel deploys with an explicit, separate promotion/cutover step — never deploy-and-cutover atomically. Prune old deploys with a dry-run-by-default cleanup tool.
@@ -909,7 +909,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
 
 ---
 
-## 6. Game Development (Godot / GDScript)
+## Game Development (Godot / GDScript)
 
 - One class per file, filename matches the class; `class_name` + `extends` on the first two lines; typed variables and constants throughout.
   ```gdscript
@@ -964,7 +964,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
 
 ---
 
-## 7. Working with AI Coding Assistants
+## Working with AI Coding Assistants
 
 - Review AI-generated code carefully, especially data structures and constraints — don't trust it silently, particularly around anything touching persisted data.
 - Be explicit about unstated requirements (e.g. data-preservation rules) — the assistant won't infer them.

@@ -1,4 +1,4 @@
-### 3.4 Blazor
+### Blazor
 
 - Render mode is opt-in per component (e.g. `@rendermode InteractiveServer`), not set globally.
   ```razor
