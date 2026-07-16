@@ -75,7 +75,7 @@ Treat this section as close to non-negotiable house style — it's the most cons
     "insert into widget (widget_id, widget_name) select widget_id, widget_name from _widget_stage \
      on conflict do nothing")?;
   ```
-- **Relation-table naming infixes are mandatory, not a nice-to-have.** Adopt this from a table's very first migration. By the time a table's relationship shape turns out to need this precision, its plain name is already baked into every query, join, and piece of application code referencing it — a rename at that point is a tractability problem, not a naming exercise. Paying the small naming cost upfront avoids ever facing that migration.
+- **Relation-table naming infixes are mandatory.** Adopt this from a table's very first migration. By the time a table's relationship shape turns out to need this precision, its plain name is already baked into every query, join, and piece of application code referencing it — a rename at that point is a tractability problem. Paying the small naming cost upfront avoids ever facing that migration.
 
   | Infix | Relationship | Example |
   |---|---|---|
@@ -292,7 +292,7 @@ Any time you need to answer both **"what did we say the value was, as of time t"
   - Present only in the new snapshot (item added) → insert a fresh open row `[_date, null)`.
 
   **Tradeoff vs. the hash-based pattern above**: write amplification now scales with *how many items actually changed*, not "did the set change at all" — a 50-item container with one quantity tick touches 2 rows instead of a full 50-row delete+reinsert, and per-item history ("when was item X added/dropped/resized") falls out for free. The cost is the reconciliation logic itself: a real set-diff against the currently-open rows rather than one hash comparison, and "what does this container hold as of date d" now scans N per-item rows (`where container_id = _id and valid_for @> _d`) instead of one header row joined to its children — still a single indexed query, just a different shape. Prefer this when per-item history is an actual requirement; prefer the hash-based header pattern when the set only needs to be treated as a unit and reconciliation simplicity matters more.
-- **Query idioms**: "as of a given date" is ordinary SQL against the range column, not a special abstraction — `join widget_t_price using (widget_id) where valid_for @> _as_of`. "Currently in effect, unqualified by a date" is worth a dedicated view when several consumers need it, resolved via the latest `lower(valid_for)` per key:
+- **Query idioms**: "as of a given date" is ordinary SQL against the range column — `join widget_t_price using (widget_id) where valid_for @> _as_of`. "Currently in effect, unqualified by a date" is worth a dedicated view when several consumers need it, resolved via the latest `lower(valid_for)` per key:
   ```sql
   create view widget_current_price as
   with head as (

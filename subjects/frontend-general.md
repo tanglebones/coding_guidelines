@@ -9,7 +9,7 @@
   }
   ```
 - Strong-type API responses; avoid `any`.
-- **Keep a large-integer field (anything the backend encoded as a JSON string per `backend-general`'s payload conventions) as a string or `BigInt`, never `Number(...)`-coerce it.** Coercing back to a plain JS number reintroduces exactly the precision loss the string encoding existed to avoid — the type the backend chose for the field is part of the contract, not an inconvenience to undo on receipt.
+- **Keep a large-integer field (anything the backend encoded as a JSON string per `backend-general`'s payload conventions) as a string or `BigInt`, never `Number(...)`-coerce it.** Coercing back to a plain JS number reintroduces exactly the precision loss the string encoding existed to avoid — the type the backend chose for the field is part of the contract.
 - Avoid `Map`/`Set` in component/app state — prefer `Record<K, V>` so state stays trivially JSON-serializable.
   ```ts
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});

@@ -8,7 +8,7 @@
     widget_normalize/
     widget_export/
   ```
-- **`anyhow::Result<T>` + `bail!()`/`.context()` everywhere** — this is the only accepted error-handling style now. Do not introduce a hand-rolled error enum or a project-wide `Rt<T> = Result<T, Box<dyn Error>>` alias for new code; treat any existing `Rt<T>`-style alias as legacy to migrate away from when touched, not a pattern to extend.
+- **`anyhow::Result<T>` + `bail!()`/`.context()` everywhere** — this is the only accepted error-handling style now. Do not introduce a hand-rolled error enum or a project-wide `Rt<T> = Result<T, Box<dyn Error>>` alias for new code; treat any existing `Rt<T>`-style alias as legacy to migrate away from when touched.
   ```rust
   use anyhow::{Result, Context, bail};
 
