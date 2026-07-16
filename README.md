@@ -51,6 +51,19 @@ Run `scripts/build-guidelines.sh --list` for the same list read live from `subje
 | [`systems/login.md`](systems/login.md) | Username/password via challenge-response, OAuth2, SAML, and the session issued once any of them succeeds. |
 | [`systems/websocket-api.md`](systems/websocket-api.md) | Building a custom WebSocket-based RPC API: connection lifecycle, message envelope, dispatch, result/error handling, push/subscription, and reconnection resync. |
 | [`systems/session-management.md`](systems/session-management.md) | Managing an authenticated session's full lifecycle — issuance, validation, rotation, revocation — independent of which login method or transport is in play. |
+| [`systems/background-jobs.md`](systems/background-jobs.md) | Background/scheduled job design: convergence toward a computed target state instead of a sequence of instructions, the multiple-partial-writers anti-pattern, and the externality exception (side effects that can't be converged, e.g. sending an email). |
+
+## Planned (not yet written)
+
+Identified gaps, tracked here so they aren't lost — not yet drafted:
+
+| Item | Where it'll live | Covers |
+|---|---|---|
+| Observability/logging | new subject | Log-level discipline, correlation/trace IDs threaded through a request (ties to the `ctx` pattern in `backend-node`), never logging secrets/PII. |
+| API idempotency & versioning | extends `backend-general` | Idempotency keys for retried mutating requests; a deprecation/versioning policy for endpoints and payload shapes. |
+| Testing strategy | new subject | A unifying philosophy across the per-language testing conventions that already exist (NUnit+FakeItEasy, Vitest, GUT) — test pyramid shape, and whether integration tests should hit a real test database rather than mocking it out, given this repo's no-ORM/real-SQL stance. |
+| `systems/multi-tenancy.md` | new systems doc | Tenant isolation strategy (row-level `tenant_id` vs schema/db-per-tenant) and cross-tenant leak prevention — `database` already assumes a `tenant_id` column in an indexing example without ever defining the isolation model. |
+| `systems/file-uploads.md` | new systems doc | Upload validation, presigned URLs, storage lifecycle. |
 
 ## Why subject fragments, not Claude Code Skills
 
