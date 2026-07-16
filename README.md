@@ -56,6 +56,7 @@ Run `scripts/build-guidelines.sh --list` for the same list read live from `subje
 | [`systems/background-jobs.md`](systems/background-jobs.md) | Background/scheduled job design: convergence toward a computed target state instead of a sequence of instructions, the multiple-partial-writers anti-pattern, and the externality exception (side effects that can't be converged, e.g. sending an email). |
 | [`systems/multi-tenancy.md`](systems/multi-tenancy.md) | Shared-schema tenant isolation: `tenant_id` on every tenant-owned table, users belonging to multiple tenants, per-tenant roles + resource-level ACLs, the "platform"/global-admin pattern, and why filtering-by-convention alone is the biggest real risk. |
 | [`systems/file-uploads.md`](systems/file-uploads.md) | Handling user-uploaded files: content validation, direct-to-storage upload via presigned URLs, malware scanning, storage lifecycle/orphan cleanup, and serving uploads back safely. |
+| [`systems/sftp.md`](systems/sftp.md) | Exchanging batch files over SFTP: timestamped batch directories, a `done.ctl` completion marker that makes a batch immutable and safe to read, and tiered date directories for an SFTP root used as an archive. |
 
 ## Why subject fragments, not Claude Code Skills
 
