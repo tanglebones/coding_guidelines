@@ -98,6 +98,20 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
   ```
   Using `400`/`401`/`403`/`422` to encode validation failures, auth decisions, or domain rejections is a common but incorrect pattern this guidance deliberately rejects — those are business results too, and belong in the payload alongside everything else. Status codes stay legitimately relevant only for things actually happening at the network/transport layer: redirects, content negotiation, rate limiting or circuit-breaking enforced by a gateway/load balancer in front of the app, and genuine upstream transport failures (`502`/`503`/`504`) — none of which is the endpoint's own business logic speaking.
 
+### API idempotency & versioning
+
+- **Idempotency keys for any retried mutating request.** A client that never gets a response (timeout, dropped connection) can't tell whether the request succeeded server-side or not — a naive retry risks double-creating, double-charging, or double-sending. The client generates one key per logical operation (not per HTTP attempt) and sends it with the request; the server durably records the key before performing the operation, and on a repeat with the same key, returns the original recorded result instead of repeating the effect. This is the same durable-intent/completion pattern as the externality handling in `systems/background-jobs.md` — same underlying problem (a retried call, no way to tell if it already happened), same fix.
+  ```sql
+  create table idempotent_request (
+    idempotency_key text primary key,
+    request_hash text not null,   -- hash of the request body, to catch a key reused for a *different* request
+    response_body jsonb,          -- null until the operation actually completes
+    created_at timestamptz not null default clock_timestamp()
+  );
+  ```
+  Insert the key first (`on conflict do nothing`); if a row already exists with a `response_body` set, return that instead of re-running the operation; if `request_hash` doesn't match what's stored, that's a client bug (reusing a key for a genuinely different request) — reject it rather than silently doing something with it. Reserve this for operations where a duplicate would actually cause harm (create, charge, send) — a read is already naturally safe to retry and doesn't need it.
+- **A deliberate versioning and deprecation policy for endpoints and payload shapes.** Pick one axis to version on (a URL/header-based API version, e.g. `/v2/widgets`, or payload-shape backward-compatibility rules) and apply it consistently — don't mix both informally. Additive changes (a new optional field) don't need a version bump; anything that changes what an existing field means, removes a field, or changes its required-ness is breaking and does. Deprecation needs an actual lifecycle — mark it, publish a real sunset date in advance, keep serving the old version until then — never silently break or remove a version clients are still calling. The same discipline already applies to the audit-event mnemonics in `observability` (`_v1`/`_v2` as a new type, never silently repurposing what an existing mnemonic means) — apply it here too, including to error codes inside the discriminated result envelope from the section above.
+
 ### Security patterns
 
 - **Never trust client input, for data or for authorization.** Frontend validation and route guards are UX conveniences, not security controls — a client can always bypass them (a raw HTTP call, a modified request, a different client entirely). This generalizes the "never let a client-supplied value control a security decision" principle in `core-principles` to every input, not just explicit security-toggle fields.

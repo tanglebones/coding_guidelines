@@ -61,7 +61,6 @@ Identified gaps, tracked here so they aren't lost — not yet drafted:
 
 | Item | Where it'll live | Covers |
 |---|---|---|
-| API idempotency & versioning | extends `backend-general` | Idempotency keys for retried mutating requests; a deprecation/versioning policy for endpoints and payload shapes. |
 | Testing strategy | new subject | A unifying philosophy across the per-language testing conventions that already exist (NUnit+FakeItEasy, Vitest, GUT) — test pyramid shape, and whether integration tests should hit a real test database rather than mocking it out, given this repo's no-ORM/real-SQL stance. |
 | `systems/file-uploads.md` | new systems doc | Upload validation, presigned URLs, storage lifecycle. |
 
