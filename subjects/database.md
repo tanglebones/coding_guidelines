@@ -75,7 +75,15 @@ Treat this section as close to non-negotiable house style — it's the most cons
     "insert into widget (widget_id, widget_name) select widget_id, widget_name from _widget_stage \
      on conflict do nothing")?;
   ```
-- **Relation-table naming infixes are mandatory, not a nice-to-have**: `_1_` optional 1:1, `_e_` mandatory 1:1 extension, `_n_` one-to-many detail, `_x_` many-to-many crosswalk, `_t_` time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these). Adopt this from a table's very first migration. By the time a table's relationship shape turns out to need this precision, its plain name is already baked into every query, join, and piece of application code referencing it — a rename at that point is a tractability problem, not a naming exercise. Paying the small naming cost upfront avoids ever facing that migration.
+- **Relation-table naming infixes are mandatory, not a nice-to-have.** Adopt this from a table's very first migration. By the time a table's relationship shape turns out to need this precision, its plain name is already baked into every query, join, and piece of application code referencing it — a rename at that point is a tractability problem, not a naming exercise. Paying the small naming cost upfront avoids ever facing that migration.
+
+  | Infix | Relationship | Example |
+  |---|---|---|
+  | `_1_` | Optional 1:1 | `widget_1_shipping_detail` |
+  | `_e_` | Mandatory 1:1 extension | `widget_e_billing_detail` |
+  | `_n_` | One-to-many detail | `widget_n_email` |
+  | `_x_` | Many-to-many crosswalk | `widget_x_tag` |
+  | `_t_` | Time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these) | `widget_t_price` |
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
