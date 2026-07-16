@@ -551,43 +551,43 @@ Treat this section as close to non-negotiable house style — it's the most cons
   | `_x_` | Many-to-many crosswalk | `widget_x_tag` |
   | `_t_` | Time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these) | `widget_t_price` |
 
-  **Avoid `_e_` in the common case — it's usually just a harder-to-insert-into version of `ALTER TABLE ... ADD COLUMN`.** A mandatory 1:1 extension needs its row created in lockstep with its parent's, on every insert path, for no real gain over a plain nullable-then-backfilled column when a normal `ALTER TABLE` is available. Reach for it only when altering the parent table directly isn't viable:
+  **Avoid `_e_` in the common case — it's usually just a harder-to-insert-into version of `ALTER TABLE ... ADD COLUMN`.** Reach for it only when altering the parent table directly isn't viable:
   - the parent table is large/hot enough that the lock `ALTER TABLE` would need is an unacceptable production outage, or
   - `ALTER TABLE` on the parent is itself blocked (e.g. by the FK-driven restrictions documented in the `database-sqlite`/`database-duckdb` subjects).
 
-  Even then, the DB layer only guarantees the extension row *can't dangle* (its FK requires a matching parent) — it can't force one to *exist* for every parent the way a `NOT NULL` column would. That "mandatory" half has to be an application-level contract: always insert both rows in the same transaction. Per engine, adding the extension without touching the parent looks like:
+  **A true `_e_` is mandatory in both directions, not advisory — that's what makes its insert pattern trickier than a plain column.** It isn't just `widget_e_billing_detail.widget_id` FK-ing to `widget` (that alone only stops the extension row from dangling); `widget` also carries a `NOT NULL` FK *back* to `widget_e_billing_detail`, so neither row can exist without the other. That mutual pair is genuinely enforced by the database, unlike a same-transaction insert convention alone — but it also means both rows' keys have to exist simultaneously before either FK can validate, which is why it can't be done as two naive sequential inserts. Verified per engine:
   ```sql
-  -- Postgres: batch the backfill (see the unnest/bound-array pattern earlier
-  -- in this section) so no single transaction holds a long-running lock
-  create table widget_e_billing_detail (
-    widget_id uuid primary key references widget(widget_id) on delete cascade,
-    billing_amount numeric not null
-  );
-  insert into widget_e_billing_detail (widget_id, billing_amount)
-  select widget_id, compute_billing_amount(widget_id) from widget
-  where widget_id = any($1::uuid[]);
+  -- Postgres: pre-generate both ids in a leading CTE, then chain two
+  -- data-modifying CTEs. Postgres checks FK constraints at end-of-statement,
+  -- not row-by-row, so both rows already exist by the time either FK
+  -- validates — no DEFERRABLE needed.
+  with ids as (
+    select uuidv7() as widget_id, uuidv7() as widget_e_billing_detail_id
+  ), new_widget as (
+    insert into widget (widget_id, widget_name, widget_e_billing_detail_id)
+    select widget_id, 'example', widget_e_billing_detail_id from ids
+    returning widget_id
+  ), new_detail as (
+    insert into widget_e_billing_detail (widget_e_billing_detail_id, widget_id, billing_amount)
+    select widget_e_billing_detail_id, widget_id, 0 from ids
+    returning widget_e_billing_detail_id
+  )
+  select * from ids;
   ```
   ```sql
-  -- SQLite: same shape; wrap each backfill batch in its own explicit
-  -- transaction per the bulk-write guidance in the database-sqlite subject
-  create table if not exists widget_e_billing_detail (
-    widget_id text primary key references widget(widget_id) on delete cascade,
-    billing_amount real not null
-  );
-  insert into widget_e_billing_detail (widget_id, billing_amount)
-  select widget_id, compute_billing_amount(widget_id) from widget
-  where widget_id not in (select widget_id from widget_e_billing_detail);
+  -- SQLite: no data-modifying CTEs at all (INSERT is not permitted inside
+  -- WITH). Pre-generate both ids in application code instead, and defer FK
+  -- checking to commit so two ordinary sequential inserts can satisfy each
+  -- other's FK within one transaction:
+  begin;
+  pragma defer_foreign_keys = on;
+  insert into widget (widget_id, widget_name, widget_e_billing_detail_id) values (?, 'example', ?);
+  insert into widget_e_billing_detail (widget_e_billing_detail_id, widget_id, billing_amount) values (?, ?, 0);
+  commit;
   ```
-  ```sql
-  -- DuckDB: no lock-contention concern (single-writer model, see the
-  -- database-duckdb subject) — this is purely the workaround for a parent
-  -- table that's an ALTER TABLE-blocked FK target
-  create table widget_e_billing_detail (
-    widget_id uuid primary key references widget(widget_id),
-    billing_amount decimal not null
-  );
-  insert into widget_e_billing_detail select widget_id, compute_billing_amount(widget_id) from widget;
-  ```
+  - **DuckDB: not achievable at the database layer.** DuckDB has no data-modifying CTEs either, checks FK constraints immediately (no deferred/commit-time option), and — as of 1.3.1 — has no `ALTER TABLE ADD CONSTRAINT` to attach the second, reverse FK once both tables already exist. A genuinely bidirectional `_e_` can't be expressed there; treat "mandatory" as an application-level contract only (always write both rows together) if using `_e_` on DuckDB at all.
+
+  Backfilling `_e_` onto an already-large table (the scenario this pattern exists for in the first place) is a separate concern from the insert-time enforcement above — batch it per the bulk-insert/bulk-write guidance already in this section (Postgres: bound-array `unnest`; SQLite: explicit transactions per batch) rather than one long-running statement.
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
