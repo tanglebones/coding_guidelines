@@ -890,6 +890,7 @@ DuckLake is DuckDB Labs' lakehouse table format: table data is still plain Parqu
   ```
 - Kubernetes minor-version upgrades must be applied one version at a time — skipping versions breaks the upgrade.
 - Secrets are set out-of-band as environment/machine-level variables by an admin — deploy tooling itself never handles secret values.
+- A small bundle of local secret files that must travel with the repo goes in a gitignored `./secret/`, packed and AES-256 encrypted to the one committed artifact `./secret.tgz.enc` via `scripts/secret_encrypt.sh`/`secret_decrypt.sh` (passphrase from a `REPO_SECRET` env var) — see `SECRETS.md`.
 - No dependencies at the root of an npm workspace/monorepo `package.json` — only shared devDependencies; real deps live in the owning workspace package.
   ```json
   {

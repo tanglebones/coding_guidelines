@@ -77,3 +77,8 @@ export_presets.cfg
 *.zip
 *.7z
 *.tar.gz
+
+# --- Encrypted local secrets (see SECRETS.md) ---
+# secret.tgz.enc IS committed — only the plaintext dir/archive are ignored.
+/secret/
+/secret.tgz
