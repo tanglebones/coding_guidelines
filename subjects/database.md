@@ -84,6 +84,44 @@ Treat this section as close to non-negotiable house style — it's the most cons
   | `_n_` | One-to-many detail | `widget_n_email` |
   | `_x_` | Many-to-many crosswalk | `widget_x_tag` |
   | `_t_` | Time-versioned relation (via `valid_for` — see the time-versioned/bitemporal data section below for how corrections and exclusion constraints work on these) | `widget_t_price` |
+
+  **Avoid `_e_` in the common case — it's usually just a harder-to-insert-into version of `ALTER TABLE ... ADD COLUMN`.** A mandatory 1:1 extension needs its row created in lockstep with its parent's, on every insert path, for no real gain over a plain nullable-then-backfilled column when a normal `ALTER TABLE` is available. Reach for it only when altering the parent table directly isn't viable:
+  - the parent table is large/hot enough that the lock `ALTER TABLE` would need is an unacceptable production outage, or
+  - `ALTER TABLE` on the parent is itself blocked (e.g. by the FK-driven restrictions documented in the `database-sqlite`/`database-duckdb` subjects).
+
+  Even then, the DB layer only guarantees the extension row *can't dangle* (its FK requires a matching parent) — it can't force one to *exist* for every parent the way a `NOT NULL` column would. That "mandatory" half has to be an application-level contract: always insert both rows in the same transaction. Per engine, adding the extension without touching the parent looks like:
+  ```sql
+  -- Postgres: batch the backfill (see the unnest/bound-array pattern earlier
+  -- in this section) so no single transaction holds a long-running lock
+  create table widget_e_billing_detail (
+    widget_id uuid primary key references widget(widget_id) on delete cascade,
+    billing_amount numeric not null
+  );
+  insert into widget_e_billing_detail (widget_id, billing_amount)
+  select widget_id, compute_billing_amount(widget_id) from widget
+  where widget_id = any($1::uuid[]);
+  ```
+  ```sql
+  -- SQLite: same shape; wrap each backfill batch in its own explicit
+  -- transaction per the bulk-write guidance in the database-sqlite subject
+  create table if not exists widget_e_billing_detail (
+    widget_id text primary key references widget(widget_id) on delete cascade,
+    billing_amount real not null
+  );
+  insert into widget_e_billing_detail (widget_id, billing_amount)
+  select widget_id, compute_billing_amount(widget_id) from widget
+  where widget_id not in (select widget_id from widget_e_billing_detail);
+  ```
+  ```sql
+  -- DuckDB: no lock-contention concern (single-writer model, see the
+  -- database-duckdb subject) — this is purely the workaround for a parent
+  -- table that's an ALTER TABLE-blocked FK target
+  create table widget_e_billing_detail (
+    widget_id uuid primary key references widget(widget_id),
+    billing_amount decimal not null
+  );
+  insert into widget_e_billing_detail select widget_id, compute_billing_amount(widget_id) from widget;
+  ```
 - **Prefer `JOIN ... USING (col)` over `JOIN ... ON a.col = b.col` in Postgres.** This is only possible because of the table-prefixed shared-column-name convention above (a FK column keeps its source table's column name specifically so it lines up for `USING`) — it's more concise, self-documenting, and Postgres automatically folds the duplicate column into one output column instead of returning both sides. Fall back to explicit `ON` only when the join key names genuinely differ (e.g. joining on a non-FK expression) or when the datatypes need an explicit cast.
   ```sql
   select w.widget_name, s.widget_status_mnemonic
