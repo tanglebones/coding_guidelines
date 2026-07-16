@@ -24,21 +24,21 @@ Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one 
 
 | Slug | Covers | Depends on |
 |---|---|---|
-| `backend-general` | General backend guidelines | |
-| `backend-csharp` | C#/.NET | |
-| `backend-rust` | Rust | |
-| `backend-node` | Node.js / TypeScript backend | |
-| `shell` | Bash / Shell | |
-| `frontend-general` | General frontend guidelines | |
-| `frontend-react` | React / TypeScript | |
-| `frontend-angular` | Angular | |
-| `frontend-blazor` | Blazor | |
-| `database` | Database core conventions, indexing, time-versioned/bitemporal data | |
-| `database-sqlite` | SQLite | `database` |
-| `database-duckdb` | DuckDB | `database` |
-| `database-ducklake` | DuckLake | `database`, `database-duckdb` |
-| `infra` | Infra / CI / CD | |
-| `game-godot` | Game development (Godot / GDScript) | |
+| [`backend-general`](subjects/backend-general.md) | General backend guidelines | |
+| [`backend-csharp`](subjects/backend-csharp.md) | C#/.NET | |
+| [`backend-rust`](subjects/backend-rust.md) | Rust | |
+| [`backend-node`](subjects/backend-node.md) | Node.js / TypeScript backend | |
+| [`shell`](subjects/shell.md) | Bash / Shell | |
+| [`frontend-general`](subjects/frontend-general.md) | General frontend guidelines | |
+| [`frontend-react`](subjects/frontend-react.md) | React / TypeScript | |
+| [`frontend-angular`](subjects/frontend-angular.md) | Angular | |
+| [`frontend-blazor`](subjects/frontend-blazor.md) | Blazor | |
+| [`database`](subjects/database.md) | Database core conventions, indexing, time-versioned/bitemporal data | |
+| [`database-sqlite`](subjects/database-sqlite.md) | SQLite | `database` |
+| [`database-duckdb`](subjects/database-duckdb.md) | DuckDB | `database` |
+| [`database-ducklake`](subjects/database-ducklake.md) | DuckLake | `database`, `database-duckdb` |
+| [`infra`](subjects/infra.md) | Infra / CI / CD | |
+| [`game-godot`](subjects/game-godot.md) | Game development (Godot / GDScript) | |
 
 Run `scripts/build-guidelines.sh --list` for the same list read live from `subjects/manifest.tsv`.
 
