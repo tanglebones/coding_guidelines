@@ -132,6 +132,17 @@ Treat this section as close to non-negotiable house style — it's the most cons
     join widget_status using (widget_status_mnemonic);
   ```
 
+**Anti-patterns to avoid**
+
+- **EAV (entity-attribute-value) tables** — a generic `(entity_id, attr_name, attr_value)` table to dodge schema changes. Kills type safety, indexing, and query readability; if the shape is genuinely dynamic, that's what a JSON/JSONB column is for, not a hand-rolled schema-less schema.
+- **Money/currency stored as `float`/`double`** instead of `numeric`/`decimal` — binary floating point can't represent most decimal fractions exactly, so sums silently drift.
+- **Freetext status/type columns instead of a FK-constrained reference table** (the `widget_status_mnemonic` pattern above) — a plain `text` column accepts typos and has no referential integrity; nothing stops `'actvie'` from being inserted.
+- **Denormalizing a one-to-many/many-to-many relationship into a JSON array column** instead of a proper `_n_`/`_x_` table — can't index, join, or enforce uniqueness on individual members; directly undercuts the naming-infix convention above.
+- **Natural/business keys as primary keys** (email, username, SSN) instead of a surrogate UUID — the natural key can change, and a PK change cascades through every FK referencing it.
+- **Reflexive `ON DELETE CASCADE`** applied without checking ownership direction — cascading a delete through a *shared reference* (see the ownership note above) silently destroys data other rows still needed; should have been `RESTRICT`.
+- **God tables** — one wide table with dozens of nullable, rarely-populated columns for every entity subtype, instead of `_1_`/`_e_` extension tables — defeats `NOT NULL` by default and makes "which columns actually apply to this row" a runtime guessing game.
+- **A cached/derived column with no documented recompute path** — e.g. a running total or aggregate that's written once and never reconciled when its source rows change, silently drifting from the truth (the forward-cascading recompute pattern later in this section is the correct version of this).
+
 ### Indexing
 
 - **Every foreign key gets an index.** Postgres does not create one automatically for FK columns (only for the referenced primary key) — an un-indexed FK causes slow joins and full-table locks on the parent row during `ON DELETE`/`ON UPDATE` cascade checks.
