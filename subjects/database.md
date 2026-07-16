@@ -143,6 +143,23 @@ Treat this section as close to non-negotiable house style — it's the most cons
 - **God tables** — one wide table with dozens of nullable, rarely-populated columns for every entity subtype, instead of `_1_`/`_e_` extension tables — defeats `NOT NULL` by default and makes "which columns actually apply to this row" a runtime guessing game.
 - **A cached/derived column with no documented recompute path** — e.g. a running total or aggregate that's written once and never reconciled when its source rows change, silently drifting from the truth (the forward-cascading recompute pattern later in this section is the correct version of this).
 
+### Normal forms
+
+- **3NF is a hard requirement for every table, no exceptions.** Every non-key column must depend on the whole primary key and nothing but the key — no partial dependency (a column that only depends on part of a composite key) and no transitive dependency (a column that depends on another non-key column instead of the key directly). This is mechanical, not domain-specific: if you can name the non-key column something depends on, it's a 3NF violation and belongs in its own table (often exactly the `_1_`/`_e_`/`_n_` split already required above).
+- **4NF (no independent multi-valued dependencies) and 5NF (no join dependencies beyond what the keys already imply) can't be verified from column names alone — they require knowing whether two attributes actually vary independently, which is domain knowledge the schema itself doesn't encode.** When a table (or a `_x_` crosswalk) combines more than one multi-valued attribute for the same entity, ask the domain expert directly whether those attributes are truly independent before modeling them together — don't assume either way, the same "ask rather than assume" discipline as everywhere else in this document.
+  ```
+  -- 4NF question to ask: does every widget_color pair with every widget_size,
+  -- or only specific combinations that were actually observed/ordered?
+  widget_x_variant (widget_id, color, size)   -- wrong if they're independent:
+                                               -- implies only certain color/size
+                                               -- pairs are valid
+  widget_n_color (widget_id, color)           -- right if independent: each
+  widget_n_size (widget_id, size)             -- multi-valued attribute gets its
+                                               -- own table
+  ```
+  5NF violations (a fact that only holds as the join of three-or-more relations, where no pairwise subset determines it) are rarer and even more domain-specific — the same rule applies: ask before assuming a combined table is safe to decompose or safe to leave combined.
+- **6NF is already what the `_t_` time-versioned tables give you** — decomposing an entity so each independently-time-varying attribute gets its own table (rather than one wide row versioned as a whole) is exactly 6NF-style decomposition, applied along the valid-time axis. See the time-versioned/bitemporal data section below; no separate treatment is needed here.
+
 ### Indexing
 
 - **Every foreign key gets an index.** Postgres does not create one automatically for FK columns (only for the referenced primary key) — an un-indexed FK causes slow joins and full-table locks on the parent row during `ON DELETE`/`ON UPDATE` cascade checks.
