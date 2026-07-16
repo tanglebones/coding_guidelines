@@ -42,6 +42,14 @@ Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one 
 
 Run `scripts/build-guidelines.sh --list` for the same list read live from `subjects/manifest.tsv`.
 
+## Systems reference
+
+`systems/*.md` is a separate, standalone reference area for guidance that only matters when building one specific subsystem — niche enough that it isn't worth loading every session the way `subjects/*.md` is. These are plain files, not part of `build-guidelines.sh`'s composition pipeline and not selectable via `--subjects`; a consumer repo's `.guidelines/` submodule is a full clone regardless of which subjects it chose, so `.guidelines/systems/*.md` is always present and readable even though it's never concatenated into a combined guidelines file. `core-usage` (always loaded, front position) carries the one pointer that makes these discoverable: check `systems/` for a matching file before starting that specific type of work.
+
+| File | Covers |
+|---|---|
+| [`systems/login.md`](systems/login.md) | Username/password via challenge-response, OAuth2, SAML, and the session issued once any of them succeeds. |
+
 ## Why subject fragments, not Claude Code Skills
 
 This could instead be packaged as a set of Claude Code Skills (one per language/area, or one per project type) rather than plain files. The seam looks similar — both let a consumer pick only the subjects relevant to their stack — but the loading model is different in a way that matters here:
