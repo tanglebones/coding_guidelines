@@ -1,6 +1,26 @@
 # Login System
 
-Reference for building a login/authentication system: username/password via challenge-response, OAuth2, SAML, and the session that results from any of them. This is one of the `systems/` reference docs (see `README.md`'s "Systems reference" section) — not part of the always-loaded guideline set, consulted only when this specific type of work is underway.
+Reference for building a login/authentication system: username/password via challenge-response, passkeys, OAuth2, SAML, and the session that results from any of them. This is one of the `systems/` reference docs (see `README.md`'s "Systems reference" section) — not part of the always-loaded guideline set, consulted only when this specific type of work is underway.
+
+## Sign-in flow: username first, then credential, then MFA
+
+Prompt for username, password, and any second factor as **separate, serial steps — never one combined form.**
+
+- **Username first, submitted alone.** The server looks up the account and responds with which credential step comes next (passkey challenge, password challenge, or "go federate with your IdP" if the account is OAuth2/SAML-only) — this is what lets an account default to a passkey prompt instead of a password field.
+- **Don't leak account existence through this step.** A nonexistent username should provoke the same-shaped response (e.g. defaulting to a password/passkey step as if the account existed) rather than an immediate "no such user" — otherwise the split step becomes a free username-enumeration oracle. Rate-limit this step exactly like the credential steps below.
+- **Then the credential step** — passkey assertion or the password challenge-response below — resolved by whichever method the username step selected.
+- **Then MFA**, as its own step after the credential succeeds, never bundled into the same request as the credential — this keeps the audit trail (`systems/login.md`'s "audit every attempt" guidance below) unambiguous about which factor failed, and keeps a failed-MFA state from ever implying the first factor wasn't already fully verified.
+
+## Passkeys (WebAuthn) — prefer over password when not federating
+
+*Directional — write from general best practice, not verified against a specific implementation in this guidelines repo yet. Verify against the current WebAuthn/FIDO2 spec and your platform's docs before relying on specifics.*
+
+**If an account isn't using OAuth2/SAML federation, prefer registering it with a passkey over the password challenge-response below** — a passkey is phishing-resistant (the browser binds the credential to the origin, so it can't be replayed against a look-alike domain the way a password or TOTP code can), and its own possession+biometric/PIN check already satisfies "something you have + something you are/know," so it doesn't need a bolted-on TOTP step the way a password does.
+
+- **Registration and assertion both go through the WebAuthn ceremony** (`navigator.credentials.create`/`.get`) — never hand-roll challenge/signature handling for a passkey the way the bcrypt protocol above does for passwords; use a vetted server-side library to verify the attestation/assertion signature, origin, and challenge.
+- **Store the credential ID, public key, and sign counter per registered authenticator** — a sign counter that doesn't strictly increase between uses is a signal of a cloned authenticator/credential, not something to silently ignore.
+- **Let an account register more than one passkey** (a phone plus a hardware key, say) so losing one device doesn't lock the user out — pair this with a documented recovery path (a backup code flow, or falling back to password+MFA) for the all-passkeys-lost case.
+- **Keep password support around as a fallback**, at least during rollout — not every user has a passkey-capable authenticator yet, and the username-first step above is exactly what makes offering passkey-when-available and password-when-not a per-account decision rather than an all-or-nothing product switch.
 
 ## Username/password via challenge-response
 
