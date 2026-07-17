@@ -45,6 +45,7 @@
   A.CallTo(() => fakeClock.UtcNow()).Returns(new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
   ```
 - **Avoid defaulting to MySQL, Redis, Oracle, PHP, WordPress, CoffeeScript, Java, C++, or Golang** when a stack choice is otherwise open — pick something else instead. Only applies to voluntarily introducing one of these; keep working with whatever's already in an existing codebase.
+- **Keep dependencies up to date and run vulnerability audits on them** (`npm audit`, `cargo audit`, `dotnet list package --vulnerable`, or the ecosystem equivalent) rather than letting them drift — a stale dependency tree accumulates both unpatched CVEs and a harder eventual upgrade. Don't bundle an unrelated dependency bump into an unrelated change; do it as its own commit/PR so a regression is easy to bisect to.
 - **Doc comments explain *why*, not *what*** — invariants, non-obvious constraints, workarounds for a specific bug. Skip comments that just restate the code.
 - **Write project docs (`README.md`, architecture notes, ADRs, etc.) for a fresh reader with zero prior context** — someone who wasn't part of whatever discussion, PR review, or chat session led to the change. Never write "as discussed," "per your request," "we decided," "the user asked for," or similar — state the resulting fact, decision, or rationale directly, as if it had always been true. If the *why* behind a decision matters, capture the durable reason (a constraint, a past incident, a tradeoff) rather than who asked for it or where it came from.
   ```md
