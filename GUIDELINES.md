@@ -300,6 +300,12 @@ Default coding conventions for Claude Code (and any other coding agent) to follo
   ```
 - `rustfmt`/`cargo fmt --check` and `cargo clippy --all-targets` (often `-D warnings`) enforced in CI; 2-space indent via `rustfmt.toml` is the deliberate house style, not default rustfmt (`tab_spaces = 2`, `newline_style = "Unix"`).
 - `#![deny(warnings)]` at the crate root for services where that's appropriate.
+- **Avoid `unsafe` — reach for it only when there's genuinely no safe alternative** (an FFI boundary, a documented perf-critical hot path where the safe version was actually measured to be too slow). When it's unavoidable, every `unsafe` block gets a `// SAFETY:` comment immediately above it explaining *why* it's needed and *how* the invariant the compiler can't check is actually upheld — not just restating that it's unsafe.
+  ```rust
+  // SAFETY: `ptr` was just returned by `Box::into_raw` above and hasn't been
+  // freed or aliased since, so reconstructing a Box from it here is sound.
+  let widget = unsafe { Box::from_raw(ptr) };
+  ```
 - Config via `serde` + RON for human-edited files, not JSON/YAML.
   ```rust
   #[derive(serde::Deserialize)]
