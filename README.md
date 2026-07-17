@@ -39,6 +39,7 @@ Selectable subjects (pass a comma-list to `--subjects`; `all` selects every one 
 | [`database-sqlite`](subjects/database-sqlite.md) | SQLite | `database` |
 | [`database-duckdb`](subjects/database-duckdb.md) | DuckDB | `database` |
 | [`database-ducklake`](subjects/database-ducklake.md) | DuckLake | `database`, `database-duckdb` |
+| [`git`](subjects/git.md) | Git workflow: hierarchical topic/work branching, merge-down-before-up, no rebase | |
 | [`infra`](subjects/infra.md) | Infra / CI / CD | |
 | [`game-godot`](subjects/game-godot.md) | Game development (Godot / GDScript) | |
 
