@@ -17,6 +17,7 @@ database	database.md	body	database	-	Database core conventions, indexing, time-v
 database-sqlite	database-sqlite.md	body	database	database	SQLite
 database-duckdb	database-duckdb.md	body	database	database	DuckDB
 database-ducklake	database-ducklake.md	body	database	database,database-duckdb	DuckLake
+git	git.md	body	git	-	Git workflow: hierarchical topic/work branching, merge-down-before-up, no rebase
 infra	infra.md	body	infra	-	Infra / CI / CD
 game-godot	game-godot.md	body	game	-	Game development (Godot / GDScript)
 ai-assistants	ai-assistants.md	back	assistants	-	Working with AI Coding Assistants
